@@ -1,0 +1,610 @@
+# ============================================================
+#  PREDICTMAINT PRO — COMPLETE PROJECT DOCUMENTATION
+#  Industrial Predictive Maintenance Web System
+#  Full Enterprise Edition — v4.0
+# ============================================================
+
+## PROJECT OVERVIEW
+================================================================================
+
+Project Name    : PredictMaint Pro — Industrial Predictive Maintenance System
+Version         : 4.0 Enterprise Edition
+Type            : Full Stack Web Application with Machine Learning
+Purpose         : Monitor industrial machines, predict failures before they
+                  happen, reduce downtime and maintenance costs
+Target Users    : Factory Operators, Maintenance Engineers, Managers, Admins
+Competition     : College Project / Industrial IoT Demo
+Data            : Fully simulated — no real hardware required
+Deployment      : Local (VS Code) or Cloud (Render / PythonAnywhere)
+
+
+## PROJECT JOURNEY — FROM START TO FINISH
+================================================================================
+
+PHASE 1 — Basic Flask App
+  - Created basic Flask web application
+  - Added login system with SQLite database
+  - Created dark industrial UI theme
+
+PHASE 2 — ML Integration
+  - Added Random Forest Classifier for failure prediction
+  - Added Isolation Forest for anomaly detection
+  - Added RUL (Remaining Useful Life) Regressor
+  - Integrated StandardScaler for feature normalization
+  - Created simulated sensor data for 6 machines
+
+PHASE 3 — Dashboard & Reports
+  - Built real-time dashboard with Chart.js
+  - Added PDF report generator using ReportLab
+  - Added Excel export using openpyxl
+  - Created daily health report
+  - Added model evaluation display
+
+PHASE 4 — Enterprise Features
+  - Role-based authentication (Admin/Engineer/Operator/Manager)
+  - Work Order management system
+  - Spare Parts Inventory tracker
+  - Maintenance History log
+  - Smart Maintenance Planner with cost estimation
+  - Notification Center with live badge count
+
+PHASE 5 — Advanced Features
+  - AI ChatBot (rule-based, reads live ML predictions)
+  - Interactive Factory Floor Map (SVG with live status)
+  - QR Code generation per machine
+  - OEE (Overall Equipment Effectiveness) calculator
+  - Energy consumption monitoring
+  - Shift management system
+  - Machine Comparison Tool with Radar chart
+  - Downtime & Production Loss Calculator
+
+PHASE 6 — Security & UX
+  - Two-Factor Authentication (2FA) with email OTP
+  - Gmail SMTP integration for real OTP delivery
+  - Professional login page (no demo credentials shown)
+  - Dark/Light mode toggle (saves preference)
+  - Voice alerts using Web Speech API
+  - WhatsApp alert simulation + real link
+  - Print dashboard feature
+  - Live simulation mode (2-second AJAX updates)
+  - Web Audio API alarm for critical machines
+
+PHASE 7 — Testing & Fixes
+  - 22 automated tests across all modules
+  - Fixed route registration bug (routes after __main__)
+  - Fixed Internal Server Error in downtime/compare templates
+  - Fixed import errors
+  - Fixed Jinja2 template syntax issues
+  - All 21/22 tests passing
+
+
+## TECHNOLOGY STACK
+================================================================================
+
+BACKEND:
+  Language        : Python 3.10+
+  Web Framework   : Flask 2.3.3
+  Authentication  : Flask-Login 0.6.3
+  Email           : Flask-Mail + smtplib (Gmail SMTP)
+  Database        : SQLite (via Python sqlite3)
+  Password Hashing: Werkzeug security (pbkdf2:sha256)
+  Server          : Gunicorn (for deployment)
+
+MACHINE LEARNING:
+  Library         : scikit-learn 1.3.2
+  Models Used:
+    1. RandomForestClassifier  — Failure probability prediction
+    2. IsolationForest         — Anomaly detection
+    3. RandomForestRegressor   — Remaining Useful Life (RUL)
+  Preprocessing   : StandardScaler (feature normalization)
+  Data            : pandas 2.1.3 + numpy 1.26.4
+
+REPORT GENERATION:
+  PDF             : ReportLab 4.0.7
+  Excel           : openpyxl 3.1.2
+
+FRONTEND:
+  Language        : HTML5, CSS3, JavaScript (ES6+)
+  CSS Framework   : Bootstrap 5.3.2
+  Icons           : Bootstrap Icons 1.11.2
+  Charts          : Chart.js 4.4.0
+  Fonts           : Google Fonts (Rajdhani, Exo 2, Share Tech Mono)
+  AJAX            : Fetch API (JavaScript)
+  Audio           : Web Audio API (alarm sound)
+  Voice           : Web Speech API (voice alerts)
+  Storage         : localStorage (theme/voice preferences)
+
+UTILITIES:
+  QR Code         : qrcode[pil] 7.4.2
+  Image           : Pillow 10.2.0
+  HTTP Requests   : requests 2.31.0
+  2FA Email       : Gmail SMTP (App Password)
+
+
+## PROJECT FILE STRUCTURE
+================================================================================
+
+predictmaint_pro/
+│
+├── app.py               ← Main Flask app (446 lines) — all routes + PDF builder
+├── models.py            ← ML engine (257 lines) — 3 models + simulation
+├── auth.py              ← Authentication (109 lines) — login + roles + SQLite
+├── config.py            ← Configuration (30 lines) — Gmail + database settings
+├── features.py          ← Extra features (250 lines) — QR, Excel, OEE, inventory
+├── chatbot.py           ← AI ChatBot (139 lines) — 8+ query types
+├── notifications.py     ← Notification system (124 lines) — alerts + history
+├── twofa.py             ← 2FA OTP system (45 lines) — Gmail email OTP
+├── downtime.py          ← Downtime calculator (new) — production loss engine
+├── wsgi.py              ← WSGI entry point (5 lines) — for deployment
+│
+├── requirements.txt     ← All 16 Python packages
+├── render.yaml          ← Render.com deployment config
+│
+├── templates/           ← 15 HTML templates
+│   ├── base.html        ← Shared layout (navbar + sidebar + theme toggle)
+│   ├── login.html       ← Professional login page
+│   ├── twofa.html       ← 2FA OTP verification page
+│   ├── dashboard.html   ← Main dashboard (407 lines)
+│   ├── search.html      ← Machine search + QR + checklist
+│   ├── analytics.html   ← Analytics dashboard
+│   ├── map.html         ← Factory floor map (SVG)
+│   ├── chatbot.html     ← AI ChatBot interface
+│   ├── notifications.html ← Notification center
+│   ├── maint_history.html ← Maintenance history log
+│   ├── workorders.html  ← Work order management
+│   ├── inventory.html   ← Spare parts inventory
+│   ├── downtime.html    ← Downtime calculator
+│   ├── compare.html     ← Machine comparison tool
+│   └── users.html       ← User management (Admin only)
+│
+├── static/
+│   ├── css/
+│   │   ├── main.css     ← Dark industrial theme
+│   │   └── light.css    ← Light theme override
+│   └── js/
+│       └── main.js      ← Charts, gauge, alarm, simulation
+│
+└── instance/
+    └── factory.db       ← SQLite database (auto-created)
+
+
+## MACHINES MONITORED
+================================================================================
+
+ID       Name                    Zone    Operator        Age Factor
+----------------------------------------------------------------------
+MCH-101  CNC Milling Machine     Zone A  Ravi Kumar      1.0 (normal)
+MCH-102  Hydraulic Press         Zone B  Suresh Nair     1.3 (aging)
+MCH-103  Conveyor Belt System    Zone A  Priya Sharma    0.9 (newer)
+MCH-104  Industrial Compressor   Zone C  Arun Patel      1.5 (old)
+MCH-105  Rotary Kiln             Zone C  Meena Raj       1.7 (critical)
+MCH-106  Turbine Generator       Zone B  Vikram Singh    0.8 (newest)
+
+
+## ML MODELS — DETAILED
+================================================================================
+
+1. RANDOM FOREST CLASSIFIER (Failure Prediction)
+   Input Features  : Temperature (°C), Vibration (mm/s),
+                     Pressure (bar), Operating Hours
+   Output          : Failure Probability (0-100%)
+   Training Data   : 2000 synthetic samples
+   Failure Rules   : Temperature > 90°C OR Vibration > 5.5 mm/s
+                     OR Pressure > 7.5 bar OR Hours > 4000
+                     OR combinations of above
+   Accuracy        : ~100% on synthetic data
+   Trees           : 100 estimators, max_depth=8
+
+2. ISOLATION FOREST (Anomaly Detection)
+   Input           : Same 4 features
+   Output          : Anomaly (YES/NO) + Anomaly Score
+   Contamination   : 10% (expects 10% anomalies)
+   Purpose         : Detect unusual sensor patterns
+
+3. RANDOM FOREST REGRESSOR (Remaining Useful Life)
+   Input           : Same 4 features
+   Output          : RUL Days (how many days machine can safely operate)
+   Color Coding    : Green > 20 days, Yellow 10-20 days, Red < 10 days
+   Training Data   : 2000 synthetic samples with degradation formula
+
+
+## INPUT PARAMETERS PER MACHINE
+================================================================================
+
+Parameter          Normal Range     Critical Threshold
+------------------------------------------------------
+Temperature        30 - 80°C        > 90°C
+Vibration          0.5 - 4.0 mm/s   > 5.5 mm/s
+Pressure           1.0 - 6.0 bar    > 7.5 bar
+Operating Hours    0 - 3000 hrs     > 4000 hrs
+
+
+## FAILURE DEDUCTION LOGIC
+================================================================================
+
+When failure is predicted, root cause is identified:
+
+Dominant Feature    Failure Type      Root Cause
+---------------------------------------------------------
+High Temperature  → Overheating     → Temperature exceeded safe threshold
+High Vibration    → Bearing Issue   → Vibration exceeded safe threshold
+High Pressure     → Valve Blockage  → Pressure exceeded safe threshold
+High Hours        → Wear and Tear   → Operating hours exceeded safe limit
+
+Solutions are suggested based on failure type:
+  Overheating    : Stop machine, check cooling, inspect lubrication
+  Bearing Issue  : Inspect bearings, replace if worn, dynamic balancing
+  Valve Blockage : Check relief valves, inspect pipelines, reduce pressure
+  Wear and Tear  : Schedule overhaul, replace consumables, lubrication service
+
+
+## COMPLETE FEATURE LIST (25+ Features)
+================================================================================
+
+CORE FEATURES:
+  ✅ Real-time sensor monitoring (Temperature, Vibration, Pressure, Hours)
+  ✅ ML failure prediction (Random Forest — failure probability %)
+  ✅ Anomaly detection (Isolation Forest)
+  ✅ Remaining Useful Life prediction (RUL in days)
+  ✅ Health Score calculation (100 - failure_probability × 100)
+  ✅ Status classification (Healthy / Warning / Critical)
+  ✅ Root cause deduction (4 failure types)
+  ✅ Recommended solutions per failure type
+  ✅ Daily morning health report (all machines)
+
+DASHBOARD FEATURES:
+  ✅ Dark industrial theme with neon accents
+  ✅ Machine selection dropdown
+  ✅ Real-time sensor trend charts (Temperature, Vibration, Pressure)
+  ✅ Failure/anomaly point highlighting (Red/Yellow on charts)
+  ✅ Health score bar chart (all machines)
+  ✅ Animated health gauge (semicircular)
+  ✅ Live sensor reading cards
+  ✅ RUL progress bar with color coding
+  ✅ Auto-refresh every 5 seconds
+  ✅ Live simulation mode (2-second AJAX updates)
+
+ALERT SYSTEM:
+  ✅ Red flashing critical alert cards
+  ✅ Web Audio API alarm sound (browser)
+  ✅ Voice alerts (Web Speech API — speaks machine ID and issue)
+  ✅ Email alerts via Gmail SMTP
+  ✅ WhatsApp simulation popup + real WhatsApp link
+  ✅ Notification center with unread badge count
+
+REPORTS:
+  ✅ PDF report download (ReportLab — professional layout)
+  ✅ Excel report export (openpyxl — multi-sheet workbook)
+  ✅ Print dashboard (browser print with clean CSS)
+  ✅ Model evaluation display (Accuracy, Precision, Recall, F1)
+  ✅ Confusion Matrix (TP/TN/FP/FN)
+
+MAINTENANCE MANAGEMENT:
+  ✅ Smart Maintenance Planner (suggested date within 3-5 days)
+  ✅ Cost Estimation (Spare parts + Labor + Penalty costs)
+  ✅ Preventive vs Breakdown cost comparison
+  ✅ Estimated savings calculation
+  ✅ Work Order system (Create, Assign, Update status)
+  ✅ Maintenance History Log (track all past work)
+  ✅ Maintenance Checklist (digital step-by-step)
+  ✅ Downtime Calculator (production loss in Rupees)
+
+ANALYTICS & INTELLIGENCE:
+  ✅ Analytics Dashboard (/analytics route)
+  ✅ Monthly failure count bar chart
+  ✅ Failure type distribution pie chart
+  ✅ Maintenance cost trend line chart
+  ✅ Downtime trend chart
+  ✅ Explainable AI (feature importance horizontal bar chart)
+  ✅ AI ChatBot (8+ query types, reads live predictions)
+  ✅ Machine Comparison Tool (side-by-side with radar chart)
+  ✅ OEE Calculator (Availability × Performance × Quality)
+  ✅ Energy consumption monitoring (hourly kWh + cost)
+
+INDUSTRIAL TOOLS:
+  ✅ Factory Floor Map (SVG with live machine status)
+  ✅ QR Code per machine (scan to see health)
+  ✅ Spare Parts Inventory (stock levels, low stock alerts)
+  ✅ Shift Management (Morning/Afternoon/Night)
+  ✅ Machine Search (enter ID to get full report)
+
+SECURITY:
+  ✅ Role-Based Authentication (4 roles)
+  ✅ Two-Factor Authentication (email OTP via Gmail)
+  ✅ OTP expires in 5 minutes
+  ✅ Secure password hashing (pbkdf2:sha256)
+  ✅ Session management (Flask-Login)
+  ✅ Admin user management panel
+
+UI/UX:
+  ✅ Dark / Light mode toggle (saves to localStorage)
+  ✅ Responsive design (Bootstrap 5)
+  ✅ Professional login page (no demo credentials shown)
+  ✅ Sidebar navigation with active state
+  ✅ Flash message notifications
+  ✅ Loading indicators
+
+
+## USER ROLES & PERMISSIONS
+================================================================================
+
+Role              Permissions
+------------------------------------------------------------------
+Admin           : All access — view all machines, manage users,
+                  generate reports, view costs, update maintenance
+Engineer        : View all machines, update maintenance status,
+                  view failures
+Operator        : View assigned machine only, see alerts
+Manager         : View all machines, generate reports, view costs
+
+Default Credentials:
+  admin      / Admin@123     → Full access
+  engineer1  / Engineer@123  → Maintenance engineer
+  operator1  / Operator@123  → Assigned to MCH-101
+  manager1   / Manager@123   → Reports and analytics
+
+
+## API ENDPOINTS
+================================================================================
+
+GET  /                          → Redirects to dashboard or login
+GET  /login                     → Login page
+POST /login                     → Authenticate user
+GET  /verify-2fa                → OTP verification page
+POST /verify-2fa                → Verify OTP
+GET  /resend-otp                → Resend OTP email
+GET  /logout                    → Logout user
+GET  /dashboard                 → Main dashboard
+GET  /search                    → Machine search
+GET  /analytics                 → Analytics dashboard
+GET  /map                       → Factory floor map
+GET  /chatbot                   → AI ChatBot page
+POST /api/chat                  → ChatBot API response
+GET  /notifications             → Notification center
+POST /notifications/read/<id>   → Mark notification read
+POST /notifications/read-all    → Mark all read
+POST /notifications/clear       → Clear all notifications
+GET  /api/notifications/count   → Get unread count (JSON)
+GET  /maintenance-history       → Maintenance history log
+POST /maintenance-history/add   → Add new record
+GET  /workorders                → Work orders list
+POST /workorders/create         → Create work order
+POST /workorders/update         → Update work order status
+GET  /inventory                 → Spare parts inventory
+GET  /downtime                  → Downtime calculator
+GET  /compare                   → Machine comparison tool
+GET  /users                     → User management (admin)
+POST /users/create              → Create new user
+POST /users/delete/<id>         → Delete user
+GET  /report/pdf/<machine_id>   → Download PDF report
+GET  /report/excel              → Download Excel report
+GET  /api/live-data             → Live sensor data (JSON)
+GET  /api/predictions           → All predictions (JSON)
+GET  /api/energy/<machine_id>   → Energy data (JSON)
+POST /api/send-alert/<id>       → Send email alert
+POST /api/whatsapp-alert/<id>   → WhatsApp simulation
+
+
+## COST ESTIMATION LOGIC
+================================================================================
+
+Failure Type      Spare Parts    Labor      Multiplier
+--------------------------------------------------------
+Overheating       Rs.15,000      Rs.8,000   1 + fail_prob
+Bearing Issue     Rs.22,000      Rs.12,000  1 + fail_prob
+Valve Blockage    Rs.18,000      Rs.9,000   1 + fail_prob
+Wear and Tear     Rs.30,000      Rs.15,000  1 + fail_prob
+
+Preventive Cost   = Total × 0.35
+Breakdown Repair  = Total × 1.80
+Estimated Savings = Breakdown - Total
+
+
+## DOWNTIME CALCULATOR LOGIC
+================================================================================
+
+Repair Time Ranges:
+  Overheating    : 4-12 hours
+  Bearing Issue  : 8-24 hours
+  Valve Blockage : 3-8 hours
+  Wear and Tear  : 24-72 hours
+
+Production Loss = Units Lost × Value Per Unit
+Labor Cost      = Hours × Rs.1,500/hour
+Penalty Cost    = Revenue Loss × 10%
+Total Loss      = Revenue + Labor + Penalty
+Savings         = Total Loss × 70% (if preventive)
+
+
+## MACHINE COMPARISON METRICS
+================================================================================
+
+8 metrics compared side by side:
+  1. Health Score (higher = better)
+  2. Failure Risk (lower = better)
+  3. Remaining Useful Life (higher = better)
+  4. Temperature (lower = better)
+  5. Vibration (lower = better)
+  6. Pressure (lower = better)
+  7. Estimated Repair Cost (lower = better)
+  8. Anomaly Detected (NO = better)
+
+Radar Chart: 6-axis visualization
+Overall Winner: Machine with most wins across all metrics
+
+
+## OEE CALCULATION
+================================================================================
+
+OEE = (Availability × Performance × Quality) / 10000
+
+Availability  = Health Score × 0.95 (±5% random)
+Performance   = 100 - Failure_Probability × 0.6 (±3% random)
+Quality       = 100 - Failure_Probability × 0.4 (±2% random)
+
+Rating: Excellent ≥ 85%, Good ≥ 70%, Average ≥ 55%, Poor < 55%
+
+
+## 2FA EMAIL OTP SYSTEM
+================================================================================
+
+Flow:
+  1. User enters username + password
+  2. Credentials verified against SQLite database
+  3. 6-digit random OTP generated
+  4. OTP stored in memory with 5-minute expiry
+  5. OTP sent to user's registered Gmail via SMTP
+  6. User redirected to /verify-2fa page
+  7. Timer counts down from 5:00
+  8. User enters 6-digit OTP
+  9. OTP verified (checks used, expired, correct)
+  10. Login successful → redirect to dashboard
+
+Email: Professional HTML email with company branding
+Fallback: If email not configured → OTP printed to console
+
+
+## PROJECT STATISTICS
+================================================================================
+
+Total Python Files    : 10
+Total HTML Templates  : 15
+Total Static Files    : 3 (main.css, light.css, main.js)
+Total Python Lines    : 1,786
+Total HTML Lines      : 2,420
+Total Code Lines      : 4,206
+Total Flask Routes    : 21 (+ 13 POST routes)
+Total API Endpoints   : 8
+Total Features        : 25+
+ML Models             : 3 (RFC + IsolationForest + RFR)
+Training Samples      : 2,000 per model
+Machines Monitored    : 6
+User Roles            : 4
+Database Tables       : 2 (users, sensor_history)
+
+
+## DEPLOYMENT OPTIONS
+================================================================================
+
+LOCAL (VS Code):
+  Requirements : Python 3.10+, pip
+  Command      : pip install -r requirements.txt && python app.py
+  Access       : http://127.0.0.1:5000
+
+NETWORK (Same WiFi):
+  Command      : python app.py (host=0.0.0.0 already set)
+  Access       : http://YOUR_LOCAL_IP:5000
+
+CLOUD (Free):
+  Render.com   : Connect GitHub repo, auto-deploys
+  PythonAnywhere: Upload files, configure WSGI
+  Koyeb.com    : Docker deployment, no sleep
+
+Environment Variables for Cloud:
+  SECRET_KEY    = your_secret_key
+  RENDER        = true
+  MAIL_USERNAME = your_gmail@gmail.com
+  MAIL_PASSWORD = your_app_password
+
+
+## KNOWN LIMITATIONS & FUTURE SCOPE
+================================================================================
+
+Current Limitations:
+  - Data is simulated (not from real IoT sensors)
+  - ML models retrain on every server restart (~20 seconds)
+  - SQLite data resets on cloud restart
+  - SMS alerts not implemented (only email)
+  - No real-time data persistence
+
+Future Improvements:
+  1. Connect Arduino/Raspberry Pi sensors for real data
+  2. Save trained models with joblib (2-second startup)
+  3. Replace SQLite with PostgreSQL for persistent cloud data
+  4. Integrate Telegram Bot for real phone alerts (free)
+  5. Replace rule-based ChatBot with Google Gemini AI (free)
+  6. Add LSTM neural network for time-series prediction
+  7. Add Plotly interactive charts
+  8. Add mobile app (React Native)
+  9. Add multi-factory support
+  10. Add predictive reorder for spare parts inventory
+
+
+## HOW TO RUN
+================================================================================
+
+Step 1: Extract the zip file
+Step 2: Open folder in VS Code
+Step 3: Open terminal in VS Code
+Step 4: Run:
+        pip install -r requirements.txt
+        python app.py
+Step 5: Open browser → http://127.0.0.1:5000
+Step 6: Login with admin / Admin@123
+Step 7: Enter OTP from Gmail inbox (or VS Code terminal)
+
+To enable real email OTP:
+  Open config.py and set:
+    MAIL_USERNAME = 'your_gmail@gmail.com'
+    MAIL_PASSWORD = 'your_16_digit_app_password'
+  Open auth.py and set admin email to your Gmail
+
+
+## PRESENTATION POINTS FOR JUDGES
+================================================================================
+
+1. "This system uses 3 ML models working together:
+   Random Forest for failure prediction,
+   Isolation Forest for anomaly detection, and
+   Random Forest Regressor for Remaining Useful Life prediction"
+
+2. "The system achieved 100% accuracy on our synthetic
+   factory dataset with 2000 training samples"
+
+3. "All features work in real-time — watch this
+   live simulation updating every 2 seconds"
+
+4. "The AI ChatBot can answer natural language questions
+   about machine health, costs, and factory status"
+
+5. "We implemented Two-Factor Authentication with real
+   Gmail OTP delivery for enterprise-grade security"
+
+6. "The system calculates actual production loss in Rupees
+   if a machine fails — helping management make decisions"
+
+7. "Future scope includes connecting real IoT sensors
+   via Arduino/Raspberry Pi for actual factory monitoring"
+
+8. "The entire system runs locally — no internet required
+   for the demo, making it reliable for presentations"
+
+
+## SUMMARY
+================================================================================
+
+PredictMaint Pro is a complete, production-quality industrial
+predictive maintenance system built entirely with open-source
+tools and zero cost. It demonstrates the power of combining
+Machine Learning with modern web development to solve real
+industrial problems.
+
+The system can:
+  → Predict machine failures before they happen
+  → Calculate exact production losses from downtime
+  → Send real email alerts with professional formatting
+  → Generate detailed PDF and Excel reports instantly
+  → Answer natural language questions via AI ChatBot
+  → Show factory health on an interactive floor map
+  → Manage work orders, inventory and maintenance history
+  → All secured with Two-Factor Authentication
+
+Built with: Python, Flask, scikit-learn, pandas, numpy,
+            HTML, CSS, Bootstrap, Chart.js, JavaScript,
+            SQLite, ReportLab, openpyxl, Gmail SMTP
+
+Total Development: 4,206 lines of code across 28 files
+
+============================================================
+  END OF DOCUMENTATION
+============================================================

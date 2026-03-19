@@ -1,0 +1,129 @@
+{% extends 'base.html' %}
+{% block title %}Inventory — PredictMaint Pro{% endblock %}
+{% block content %}
+<div class="pm-title mb-3"><i class="bi bi-box-seam text-acc"></i> Spare Parts Inventory</div>
+<!-- AI PREDICTIVE REORDER PANEL -->
+<div class="pm-card mb-3" id="reorderPanel">
+  <div class="pm-card-head">
+    <i class="bi bi-robot text-dng"></i> AI Predictive Reorder Alerts
+    <span class="ms-2 badge bg-danger" id="reorderBadge" style="display:none"></span>
+    <button class="ms-auto pm-btn pm-btn-sm" onclick="loadReorderAlerts()">
+      <i class="bi bi-arrow-clockwise"></i> Check Now
+    </button>
+  </div>
+  <div id="reorderContent">
+    <div class="text-mut text-center py-3" style="font-size:.84rem">
+      <i class="bi bi-robot me-2"></i>Click "Check Now" to run AI reorder analysis
+    </div>
+  </div>
+</div>
+
+<script>
+async function loadReorderAlerts() {
+  document.getElementById('reorderContent').innerHTML =
+    '<div class="text-center py-3"><i class="bi bi-hourglass-split text-acc me-2"></i>Analysing ML predictions vs inventory...</div>';
+  try {
+    const r = await fetch('/api/reorder-alerts');
+    const d = await r.json();
+    const alerts = d.alerts || [];
+    const badge  = document.getElementById('reorderBadge');
+    if (alerts.length === 0) {
+      document.getElementById('reorderContent').innerHTML =
+        '<div class="text-acc2 text-center py-3"><i class="bi bi-check-circle me-2"></i>All inventory levels adequate. No urgent reorders needed.</div>';
+      badge.style.display = 'none';
+      return;
+    }
+    badge.textContent = alerts.length + ' urgent';
+    badge.style.display = 'inline';
+    let html = '<div class="table-responsive"><table class="pm-tbl"><thead><tr><th>Part</th><th>Status</th><th>Qty</th><th>Machine</th><th>Reason</th><th>Unit Cost</th><th>Urgency</th></tr></thead><tbody>';
+    alerts.forEach(a => {
+      const uc = a.urgency === 'CRITICAL' ? 'text-dng' : 'text-warn';
+      const sc = a.status === 'Out' ? 'st st-critical' : 'st st-warning';
+      html += `<tr>
+        <td><strong>${a.part}</strong></td>
+        <td><span class="${sc}">● ${a.status}</span></td>
+        <td class="font-mono">${a.qty} / ${a.min_qty} min</td>
+        <td class="font-mono text-acc">${a.machine}</td>
+        <td class="text-mut" style="font-size:.78rem">${a.reason}</td>
+        <td class="font-mono">₹${a.cost.toLocaleString()}</td>
+        <td><span class="${uc} fw-bold">${a.urgency}</span></td>
+      </tr>`;
+    });
+    html += '</tbody></table></div>';
+    document.getElementById('reorderContent').innerHTML = html;
+  } catch(e) {
+    document.getElementById('reorderContent').innerHTML =
+      '<div class="text-dng text-center py-2">Error loading alerts. Is server running?</div>';
+  }
+}
+// Auto-load on page open
+loadReorderAlerts();
+</script>
+
+
+
+<div class="row g-3 mb-3">
+  {% set ok_count  = inventory|selectattr('status','eq','OK')|list|length %}
+  {% set low_count = inventory|selectattr('status','eq','Low')|list|length %}
+  {% set out_count = inventory|selectattr('status','eq','Out')|list|length %}
+  {% set total_val = namespace(v=0) %}
+  {% for item in inventory %}{% set total_val.v = total_val.v + item.quantity * item.unit_cost %}{% endfor %}
+  {% for lbl,val,cls in [
+    ('Total Parts',inventory|length,'text-acc'),
+    ('In Stock',ok_count,'text-acc2'),
+    ('Low Stock',low_count,'text-warn'),
+    ('Out of Stock',out_count,'text-dng'),
+  ] %}
+  <div class="col-6 col-md-3"><div class="pm-met">
+    <div class="val {{ cls }}">{{ val }}</div><div class="lbl">{{ lbl }}</div>
+  </div></div>
+  {% endfor %}
+</div>
+
+{% if out_count > 0 or low_count > 0 %}
+<div class="pm-alert-crit mb-3">
+  <i class="bi bi-exclamation-triangle-fill text-warn me-2"></i>
+  <strong>Stock Alert:</strong>
+  {% if out_count %}<span class="text-dng">{{ out_count }} part(s) OUT OF STOCK</span>{% endif %}
+  {% if out_count and low_count %} | {% endif %}
+  {% if low_count %}<span class="text-warn">{{ low_count }} part(s) LOW STOCK</span>{% endif %}
+  — Please reorder immediately!
+</div>
+{% endif %}
+
+<div class="pm-card">
+  <div class="pm-card-head"><i class="bi bi-table"></i> Parts List</div>
+  <div class="table-responsive">
+    <table class="pm-tbl">
+      <thead><tr>
+        <th>Part ID</th><th>Part Name</th><th>Qty</th><th>Min Qty</th>
+        <th>Unit Cost</th><th>Total Value</th><th>Compatible Machines</th><th>Status</th>
+      </tr></thead>
+      <tbody>
+        {% for item in inventory %}
+        <tr>
+          <td class="font-mono text-acc">{{ item.id }}</td>
+          <td class="fw-bold">{{ item.part }}</td>
+          <td class="font-mono {{ 'text-dng' if item.status=='Out' else 'text-warn' if item.status=='Low' else 'text-acc2' }}">
+            {{ item.quantity }}
+          </td>
+          <td class="font-mono text-mut">{{ item.min_qty }}</td>
+          <td class="font-mono text-acc">Rs.{{ "{:,}".format(item.unit_cost) }}</td>
+          <td class="font-mono text-acc2">Rs.{{ "{:,}".format(item.quantity * item.unit_cost) }}</td>
+          <td>
+            {% for m in item.compatible %}
+            <span class="pm-role-badge" style="font-size:.6rem;margin:1px">{{ m }}</span>
+            {% endfor %}
+          </td>
+          <td>
+            <span class="st {{ 'st-critical' if item.status=='Out' else 'st-warning' if item.status=='Low' else 'st-healthy' }}" style="font-size:.65rem">
+              {{ item.status }}
+            </span>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

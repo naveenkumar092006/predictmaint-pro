@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+
+# Saved ML models (will retrain on deploy)
+saved_models/
+
+# Database (use PostgreSQL in production)
+instance/
+*.db
+*.sqlite3
+
+# Environment
+.env
+.env.*
+venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log

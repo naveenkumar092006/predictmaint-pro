@@ -1,0 +1,486 @@
+{% extends 'base.html' %}
+{% block title %}Dashboard — PredictMaint Pro{% endblock %}
+{% block content %}
+
+<!-- HEADER -->
+<div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+  <div>
+    <div class="pm-title"><i class="bi bi-cpu text-acc"></i> Factory Dashboard</div>
+    <small class="font-mono text-mut">{{ now }}</small>
+  </div>
+  <div class="d-flex gap-2 align-items-center">
+    <span class="st st-healthy"><i class="bi bi-wifi"></i> LIVE</span>
+    <button class="pm-btn pm-btn-sm" onclick="window.location.reload()">
+      <i class="bi bi-arrow-clockwise"></i> Refresh
+    </button>
+  </div>
+</div>
+
+
+<!-- MULTI-FACTORY OVERVIEW STRIP -->
+<div class="pm-card mb-3" id="factoryStrip">
+  <div class="pm-card-head">
+    <i class="bi bi-building text-acc"></i> Multi-Factory Overview
+    <span class="ms-auto font-mono text-mut" style="font-size:.72rem" id="factoryUpdateTime"></span>
+  </div>
+  <div id="factoryCards" style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;padding:4px 0">
+    <div class="text-mut text-center py-2" style="grid-column:1/-1;font-size:.82rem">
+      <i class="bi bi-hourglass-split me-1"></i>Loading factory data...
+    </div>
+  </div>
+</div>
+
+<script>
+async function loadFactories() {
+  try {
+    const r = await fetch('/api/factory-summary');
+    const d = await r.json();
+    if (!d.success) return;
+    const factories = d.factories;
+    const container = document.getElementById('factoryCards');
+    container.innerHTML = Object.values(factories).map(f => {
+      const hc   = f.avg_health >= 60 ? '#00e676' : f.avg_health >= 40 ? '#ff9800' : '#f44336';
+      const sc   = f.status === 'Critical' ? 'st-critical' : 'st-healthy';
+      const icon = f.status === 'Critical' ? 'bi-exclamation-triangle-fill text-dng' : 'bi-check-circle-fill text-acc2';
+      return `<div style="background:var(--bgcard2);border:1px solid var(--border);border-radius:10px;padding:12px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+          <div>
+            <div style="font-weight:700;font-size:.88rem;color:var(--text)">${f.name}</div>
+            <div style="font-size:.72rem;color:var(--muted)">${f.city} • ${f.manager}</div>
+          </div>
+          <i class="bi ${icon}" style="font-size:1.2rem"></i>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px">
+          <div style="text-align:center;background:var(--bgcard);border-radius:6px;padding:6px">
+            <div style="font-size:1.1rem;font-weight:700;font-family:monospace;color:${hc}">${f.avg_health}%</div>
+            <div style="font-size:.65rem;color:var(--muted);text-transform:uppercase">Health</div>
+          </div>
+          <div style="text-align:center;background:var(--bgcard);border-radius:6px;padding:6px">
+            <div style="font-size:1.1rem;font-weight:700;font-family:monospace;color:${f.avg_risk>60?'#f44336':f.avg_risk>30?'#ff9800':'#00e676'}">${f.avg_risk}%</div>
+            <div style="font-size:.65rem;color:var(--muted);text-transform:uppercase">Risk</div>
+          </div>
+        </div>
+        <div style="height:5px;background:rgba(255,255,255,.08);border-radius:3px;overflow:hidden">
+          <div style="width:${f.avg_health}%;height:100%;background:${hc};border-radius:3px;transition:width .6s"></div>
+        </div>
+        ${f.critical.length ? `<div style="font-size:.7rem;color:#f44336;margin-top:6px">⚠ Critical: ${f.critical.join(', ')}</div>` : '<div style="font-size:.7rem;color:#00e676;margin-top:6px">✅ All machines normal</div>'}
+      </div>`;
+    }).join('');
+    document.getElementById('factoryUpdateTime').textContent =
+      'Updated ' + new Date().toLocaleTimeString('en-IN',{hour12:false});
+  } catch(e) {}
+}
+loadFactories();
+setInterval(loadFactories, 15000);
+</script>
+
+<!-- DAILY REPORT -->
+<div class="pm-card mb-3">
+  <div class="pm-card-head"><i class="bi bi-clipboard-data"></i> Daily Machine Health Report</div>
+  <div class="table-responsive">
+    <table class="pm-tbl">
+      <thead><tr>
+        <th>Machine ID</th><th>Name</th><th>Operator</th>
+        <th>Health</th><th>Risk %</th><th>Last Maint.</th><th>Status</th><th>Action</th>
+      </tr></thead>
+      <tbody>
+        {% for r in daily_report %}{% if r.machine_id in machine_ids %}
+        <tr>
+          <td class="font-mono text-acc">{{ r.machine_id }}</td>
+          <td>{{ r.name }}</td>
+          <td class="text-mut">{{ r.operator }}</td>
+          <td>
+            <div class="d-flex align-items-center gap-2">
+              <div class="pm-prog" style="width:70px">
+                <div class="pm-bar {{ 'bar-ok' if r.health_score>=60 else 'bar-warn' if r.health_score>=40 else 'bar-crit' }}"
+                     style="width:{{ r.health_score }}%"></div>
+              </div>
+              <span class="font-mono" style="font-size:.8rem">{{ r.health_score }}%</span>
+            </div>
+          </td>
+          <td class="font-mono {{ 'text-dng' if r.failure_risk>60 else 'text-warn' if r.failure_risk>30 else 'text-acc2' }}">
+            {{ r.failure_risk }}%
+          </td>
+          <td class="font-mono text-mut" style="font-size:.8rem">{{ r.last_maintenance }}</td>
+          <td><span class="st st-{{ r.status|lower }}">● {{ r.status }}</span></td>
+          <td><small class="text-mut">{{ r.recommended_action }}</small></td>
+        </tr>
+        {% endif %}{% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- CRITICAL ALERTS -->
+{% for mid in machine_ids %}{% if predictions[mid].status == 'Critical' %}
+<div class="pm-alert-crit mb-3">
+  <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+    <div>
+      <span class="st st-critical me-2">🚨 CRITICAL</span>
+      <strong>{{ mid }}</strong> — {{ predictions[mid].machine_info.name }}
+      &nbsp;|&nbsp;<span class="font-mono text-dng">{{ predictions[mid].failure_probability }}% Risk</span>
+      &nbsp;|&nbsp;<span class="text-warn">{{ predictions[mid].failure_type }}</span>
+    </div>
+    <div class="d-flex gap-2">
+      <button class="pm-btn pm-btn-dng pm-btn-sm" onclick="playAlarm(); sendAlert('{{ mid }}')">
+        <i class="bi bi-bell-fill"></i> Alarm
+      </button>
+      <button class="pm-btn pm-btn-sm" style="background:linear-gradient(135deg,#128C7E,#25D366);color:#fff" onclick="sendWhatsAppAlert('{{ mid }}')" style="background:linear-gradient(135deg,#128C7E,#25D366);color:#fff"></i> WhatsApp</button>
+      <a href="/report/pdf/{{ mid }}" class="pm-btn pm-btn-sm">
+        <i class="bi bi-file-pdf"></i> PDF
+      </a>
+    </div>
+  </div>
+  <div class="mt-2 ps-1">
+    <small class="text-mut"><strong>Root Cause:</strong> {{ predictions[mid].root_cause }}</small><br>
+    <small class="text-mut"><strong>Action:</strong> {{ predictions[mid].solutions[0] }}</small>
+  </div>
+</div>
+{% endif %}{% endfor %}
+
+<!-- MACHINE SELECTOR + SIM CONTROLS -->
+<div class="pm-card mb-3">
+  <div class="pm-card-head"><i class="bi bi-sliders"></i> Machine Selection & Live Simulation</div>
+  <div class="d-flex align-items-center gap-3 flex-wrap">
+    <form method="GET" action="/dashboard" class="d-flex align-items-center gap-2">
+      <label class="text-mut" style="font-size:.8rem;white-space:nowrap">Select Machine:</label>
+      <select name="machine" class="form-select pm-sel" style="width:230px" onchange="this.form.submit()">
+        {% for mid in machine_ids %}
+        <option value="{{ mid }}" {% if mid==selected_id %}selected{% endif %}>{{ mid }} — {{ machines[mid].name }}</option>
+        {% endfor %}
+      </select>
+    </form>
+    <button class="pm-btn pm-btn-ok pm-btn-sm" id="btnStart" onclick="startLiveSim()">
+      <i class="bi bi-play-fill"></i> Start Simulation
+    </button>
+    <button class="pm-btn pm-btn-dng pm-btn-sm" id="btnStop" onclick="stopLiveSim()" disabled>
+      <i class="bi bi-stop-fill"></i> Stop
+    </button>
+    <span id="simSt" class="font-mono text-mut" style="font-size:.78rem">● Idle</span>
+  </div>
+</div>
+
+<!-- METRIC CARDS -->
+<div class="row g-3 mb-3">
+  {% for label,val,mid_cls in [
+    ('Health Score %',     selected_pred.health_score,       'text-acc2' if selected_pred.health_score>=60 else 'text-warn' if selected_pred.health_score>=40 else 'text-dng'),
+    ('Failure Risk %',     selected_pred.failure_probability,'text-dng'  if selected_pred.failure_probability>60 else 'text-warn' if selected_pred.failure_probability>30 else 'text-acc2'),
+    ('RUL Days',           selected_pred.rul_days,           'text-acc2' if selected_pred.rul_days>20 else 'text-warn' if selected_pred.rul_days>10 else 'text-dng'),
+    ('Anomaly',            'YES' if selected_pred.is_anomaly else 'NO', 'text-dng' if selected_pred.is_anomaly else 'text-acc2'),
+  ] %}
+  <div class="col-6 col-md-3">
+    <div class="pm-met">
+      <div class="val {{ mid_cls }} font-mono"
+           id="{{ ['liveHS','liveFP','liveRUL','liveAN'][loop.index0] }}">{{ val }}</div>
+      <div class="lbl">{{ label }}</div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<!-- SENSOR CHARTS -->
+<div class="row g-3 mb-3">
+  <div class="col-md-4"><div class="pm-card h-100">
+    <div class="pm-card-head"><i class="bi bi-thermometer-half"></i> Temperature (°C)</div>
+    <canvas id="cTemp" height="170" style="width:100%!important"></canvas>
+  </div></div>
+  <div class="col-md-4"><div class="pm-card h-100">
+    <div class="pm-card-head"><i class="bi bi-activity"></i> Vibration (mm/s)</div>
+    <canvas id="cVib" height="170" style="width:100%!important"></canvas>
+  </div></div>
+  <div class="col-md-4"><div class="pm-card h-100">
+    <div class="pm-card-head"><i class="bi bi-speedometer"></i> Pressure (bar)</div>
+    <canvas id="cPres" height="170" style="width:100%!important"></canvas>
+  </div></div>
+</div>
+
+<!-- HEALTH BAR + GAUGE + READINGS -->
+<div class="row g-3 mb-3">
+  <div class="col-md-5"><div class="pm-card h-100">
+    <div class="pm-card-head"><i class="bi bi-bar-chart-fill"></i> All Machine Health Scores</div>
+    <canvas id="cHealth" height="190"></canvas>
+  </div></div>
+
+  <div class="col-md-3"><div class="pm-card h-100 text-center">
+    <div class="pm-card-head justify-content-center"><i class="bi bi-speedometer2"></i> Health Gauge</div>
+    <canvas id="gauge" width="170" height="95" class="mx-auto d-block mt-2"></canvas>
+    <div class="mt-3">
+      <span class="st st-{{ selected_pred.status|lower }}">● {{ selected_pred.status }}</span>
+    </div>
+    <div class="mt-1 font-mono text-mut" style="font-size:.75rem">{{ selected_id }}</div>
+    <!-- RUL Progress -->
+    <div class="mt-3 px-2 text-start">
+      <div class="d-flex justify-content-between mb-1">
+        <small class="text-mut">Remaining Useful Life</small>
+        <small class="font-mono" id="rulLbl">{{ selected_pred.rul_days }} days</small>
+      </div>
+      <div class="pm-prog">
+        <div class="pm-bar {{ 'bar-ok' if selected_pred.rul_days>20 else 'bar-warn' if selected_pred.rul_days>10 else 'bar-crit' }}"
+             id="rulBar" style="width:{{ [selected_pred.rul_days/60*100, 100]|min }}%"></div>
+      </div>
+      <small class="{{ 'text-acc2' if selected_pred.rul_days>20 else 'text-warn' if selected_pred.rul_days>10 else 'text-dng' }}">
+        {% if selected_pred.rul_days>20 %}● Safe Operating
+        {% elif selected_pred.rul_days>10 %}● Caution Zone
+        {% else %}● Replace Soon{% endif %}
+      </small>
+    </div>
+    {% if selected_pred.suggested_maintenance_date %}
+    <div class="mt-2 mx-2 p-2 text-center" style="background:rgba(255,51,85,.08);border:1px solid rgba(255,51,85,.25);border-radius:8px">
+      <small class="text-dng">⚠ Maint. by <strong>{{ selected_pred.suggested_maintenance_date }}</strong></small>
+    </div>
+    {% endif %}
+  </div></div>
+
+  <div class="col-md-4"><div class="pm-card h-100">
+    <div class="pm-card-head"><i class="bi bi-broadcast"></i> Live Sensor Readings</div>
+    <div class="row g-2">
+      <div class="col-6"><div class="pm-met">
+        <div class="val text-acc font-mono" id="lTemp">{{ selected_pred.readings.temperature }}</div>
+        <div class="lbl">Temp °C</div>
+      </div></div>
+      <div class="col-6"><div class="pm-met">
+        <div class="val text-warn font-mono" id="lVib">{{ selected_pred.readings.vibration }}</div>
+        <div class="lbl">Vibration</div>
+      </div></div>
+      <div class="col-6"><div class="pm-met">
+        <div class="val text-pur font-mono" id="lPres">{{ selected_pred.readings.pressure }}</div>
+        <div class="lbl">Pressure bar</div>
+      </div></div>
+      <div class="col-6"><div class="pm-met">
+        <div class="val text-mut font-mono" id="lHrs">{{ selected_pred.readings.operating_hours|int }}</div>
+        <div class="lbl">Op. Hours</div>
+      </div></div>
+    </div>
+    <div class="mt-3 p-2" style="background:rgba(0,212,255,.05);border-radius:8px">
+      <small class="text-warn fw-bold">{{ selected_pred.failure_type }}</small><br>
+      <small class="text-mut">{{ selected_pred.root_cause }}</small>
+    </div>
+  </div></div>
+</div>
+
+<!-- FAILURE DEDUCTION + COST + XAI -->
+<div class="row g-3 mb-3">
+  <div class="col-md-4"><div class="pm-card h-100">
+    <div class="pm-card-head"><i class="bi bi-bug"></i> Failure Deduction — {{ selected_id }}</div>
+    <div class="mb-2">
+      <small class="text-mut" style="font-size:.68rem;text-transform:uppercase;letter-spacing:.08em">Failure Type</small>
+      <div class="text-warn fw-bold mt-1">{{ selected_pred.failure_type }}</div>
+    </div>
+    <div class="mb-2">
+      <small class="text-mut" style="font-size:.68rem;text-transform:uppercase;letter-spacing:.08em">Root Cause</small>
+      <div class="mt-1">{{ selected_pred.root_cause }}</div>
+    </div>
+    <div>
+      <small class="text-mut" style="font-size:.68rem;text-transform:uppercase;letter-spacing:.08em">Solutions</small>
+      <ul class="mt-1 ps-3" style="font-size:.83rem;color:#aabbcc">
+        {% for s in selected_pred.solutions %}<li>{{ s }}</li>{% endfor %}
+      </ul>
+    </div>
+    <a href="/report/pdf/{{ selected_id }}" class="pm-btn mt-3 w-100 text-center" style="display:block">
+      <i class="bi bi-file-earmark-pdf-fill me-1"></i>Download PDF Report
+    </a>
+  </div></div>
+
+  <div class="col-md-4"><div class="pm-card h-100">
+    <div class="pm-card-head"><i class="bi bi-tools"></i> Smart Maintenance Planner</div>
+    {% set c = selected_pred.cost_estimate %}
+    <div class="cost-row"><span class="text-mut">Spare Parts Cost</span><span class="font-mono text-acc">₹{{ "{:,}".format(c.spare_parts_cost) }}</span></div>
+    <div class="cost-row"><span class="text-mut">Labor Cost</span><span class="font-mono text-acc">₹{{ "{:,}".format(c.labor_cost) }}</span></div>
+    <div class="cost-row"><span class="text-mut">Total Estimated</span><span class="font-mono text-acc fw-bold" style="font-size:1rem">₹{{ "{:,}".format(c.total_estimated) }}</span></div>
+    <div class="cost-row"><span class="text-mut">Preventive Maint.</span><span class="font-mono text-mut">₹{{ "{:,}".format(c.preventive_cost) }}</span></div>
+    <div class="cost-row"><span class="text-mut">Breakdown Repair</span><span class="font-mono text-dng">₹{{ "{:,}".format(c.breakdown_repair) }}</span></div>
+    <div class="cost-row"><span class="text-mut">Estimated Savings</span><span class="font-mono text-acc2 fw-bold">₹{{ "{:,}".format(c.estimated_savings) }}</span></div>
+    {% if selected_pred.suggested_maintenance_date %}
+    <div class="mt-3 p-2 text-center" style="background:rgba(255,170,0,.08);border:1px solid rgba(255,170,0,.2);border-radius:8px">
+      <small class="text-warn">📅 Suggested Date</small><br>
+      <strong class="font-mono">{{ selected_pred.suggested_maintenance_date }}</strong>
+    </div>
+    {% endif %}
+    <button class="pm-btn mt-3 w-100" onclick="sendAlert('{{ selected_id }}')">
+      <i class="bi bi-envelope-fill me-1"></i>Send Alert Email
+    </button>
+    <div id="alertSt" class="mt-2 text-center" style="font-size:.78rem"></div>
+  </div></div>
+
+  <div class="col-md-4"><div class="pm-card h-100">
+    <div class="pm-card-head"><i class="bi bi-diagram-3"></i> Explainable AI — Feature Importance</div>
+    <canvas id="cFeature" height="155"></canvas>
+    <div class="mt-2 p-2" style="background:rgba(0,212,255,.05);border-radius:8px">
+      {% set fi = model_metrics.feature_importance %}
+      {% set top = fi|dictsort(by='value')|reverse|first %}
+      <small class="text-acc"><i class="bi bi-lightbulb-fill me-1"></i>
+        <strong>{{ top[0] }}</strong> contributes <strong>{{ top[1] }}%</strong> to failure prediction.
+      </small>
+    </div>
+  </div></div>
+</div>
+
+<!-- MODEL METRICS -->
+<div class="row g-3 mb-3">
+  <div class="col-md-8"><div class="pm-card">
+    <div class="pm-card-head"><i class="bi bi-graph-up"></i> Model Evaluation — Random Forest Classifier</div>
+    <div class="row g-3 text-center">
+      {% for lbl,key in [('Accuracy','accuracy'),('Precision','precision'),('Recall','recall'),('F1 Score','f1')] %}
+      <div class="col-3"><div class="pm-met">
+        <div class="val text-acc2">{{ model_metrics[key] }}</div>
+        <div class="lbl">{{ lbl }} %</div>
+      </div></div>
+      {% endfor %}
+    </div>
+  </div></div>
+
+  <div class="col-md-4"><div class="pm-card">
+    <div class="pm-card-head"><i class="bi bi-grid"></i> Confusion Matrix</div>
+    {% set cm = model_metrics.confusion_matrix %}
+    <div class="d-flex flex-column align-items-center gap-2 mt-2">
+      <div class="d-flex gap-2">
+        <div class="cm-cell cm-tn">{{ cm[0][0] }}<small style="font-size:9px;opacity:.55">TN</small></div>
+        <div class="cm-cell cm-fp">{{ cm[0][1] }}<small style="font-size:9px;opacity:.55">FP</small></div>
+      </div>
+      <div class="d-flex gap-2">
+        <div class="cm-cell cm-fn">{{ cm[1][0] }}<small style="font-size:9px;opacity:.55">FN</small></div>
+        <div class="cm-cell cm-tp">{{ cm[1][1] }}<small style="font-size:9px;opacity:.55">TP</small></div>
+      </div>
+    </div>
+  </div></div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+const hist = {{ history | tojson }};
+const lbs  = hist.map(d => d.timestamp.split(' ')[1]);
+const tArr = hist.map(d => d.temperature);
+const vArr = hist.map(d => d.vibration);
+const pArr = hist.map(d => d.pressure);
+const opts = {
+  responsive:true, animation:{duration:400},
+  plugins:{legend:{display:false}},
+  scales:{x:{ticks:{maxTicksLimit:6,font:{size:10}}}, y:AX}
+};
+
+const cT = new Chart(document.getElementById('cTemp').getContext('2d'),{
+  type:'line', options:opts,
+  data:{labels:lbs, datasets:[{...pmDS('Temp','rgb(0,212,255)',tArr),
+    pointBackgroundColor:ptColors(tArr,90,'#00d4ff','#ff3355'),
+    pointRadius:ptColors(tArr,90,3,6)}]}
+});
+const cV = new Chart(document.getElementById('cVib').getContext('2d'),{
+  type:'line', options:opts,
+  data:{labels:lbs, datasets:[{...pmDS('Vib','rgb(255,170,0)',vArr),
+    pointBackgroundColor:ptColors(vArr,5.5,'#ffaa00','#ff3355'),
+    pointRadius:ptColors(vArr,5.5,3,6)}]}
+});
+const cP = new Chart(document.getElementById('cPres').getContext('2d'),{
+  type:'line', options:opts,
+  data:{labels:lbs, datasets:[{...pmDS('Pres','rgb(200,100,255)',pArr),
+    pointBackgroundColor:ptColors(pArr,7.5,'#cc88ff','#ff3355'),
+    pointRadius:ptColors(pArr,7.5,3,6)}]}
+});
+
+// Health bar chart
+const preds = {{ predictions | tojson }};
+const mids  = Object.keys(preds);
+const hs    = mids.map(m => preds[m].health_score);
+new Chart(document.getElementById('cHealth').getContext('2d'),{
+  type:'bar',
+  data:{labels:mids, datasets:[{label:'Health %', data:hs, borderRadius:5,
+    backgroundColor:hs.map(s=>s>=60?'rgba(0,255,136,.65)':s>=40?'rgba(255,170,0,.65)':'rgba(255,51,85,.65)')}]},
+  options:{responsive:true,plugins:{legend:{display:false}},
+    scales:{y:{min:0,max:100,...AX},x:{grid:{display:false}}}}
+});
+
+// Feature importance
+const fi = {{ model_metrics.feature_importance | tojson }};
+new Chart(document.getElementById('cFeature').getContext('2d'),{
+  type:'bar',
+  data:{labels:Object.keys(fi), datasets:[{data:Object.values(fi),borderRadius:4,
+    backgroundColor:['rgba(0,212,255,.7)','rgba(255,170,0,.7)','rgba(200,100,255,.7)','rgba(0,255,136,.7)']}]},
+  options:{indexAxis:'y',responsive:true,plugins:{legend:{display:false}},
+    scales:{x:{max:100,...AX},y:{grid:{display:false}}}}
+});
+
+// Gauge
+drawGauge('gauge', {{ selected_pred.health_score }}, 'Health');
+
+// Live simulation
+let lT=[...tArr],lV=[...vArr],lP=[...pArr],lL=[...lbs];
+const MAX=30;
+
+function startLiveSim(){
+  document.getElementById('btnStart').disabled=true;
+  document.getElementById('btnStop').disabled=false;
+  document.getElementById('simSt').innerHTML='<span style="color:#00ff88;animation:none" class="font-mono">● LIVE RUNNING</span>';
+  startSimulation('{{ selected_id }}', d=>{
+    document.getElementById('lTemp').textContent=d.temperature;
+    document.getElementById('lVib').textContent=d.vibration;
+    document.getElementById('lPres').textContent=d.pressure;
+    document.getElementById('lHrs').textContent=Math.round(d.operating_hours);
+    document.getElementById('liveHS').textContent=d.health_score;
+    document.getElementById('liveFP').textContent=d.failure_probability;
+    document.getElementById('liveRUL').textContent=d.rul_days;
+    drawGauge('gauge', d.health_score, 'Health');
+    lL.push(d.timestamp); lT.push(d.temperature); lV.push(d.vibration); lP.push(d.pressure);
+    if(lL.length>MAX){lL.shift();lT.shift();lV.shift();lP.shift();}
+    [cT,cV,cP].forEach((ch,i)=>{
+      ch.data.labels=[...lL];
+      ch.data.datasets[0].data=[...lT,lV,lP][i];
+      ch.update('none');
+    });
+    cT.data.datasets[0].data=[...lT]; cT.update('none');
+    cV.data.datasets[0].data=[...lV]; cV.update('none');
+    cP.data.datasets[0].data=[...lP]; cP.update('none');
+    if(d.failure_probability>60) playAlarm();
+  });
+}
+
+function stopLiveSim(){
+  stopSimulation();
+  document.getElementById('btnStart').disabled=false;
+  document.getElementById('btnStop').disabled=true;
+  document.getElementById('simSt').innerHTML='<span class="text-mut font-mono">● Idle</span>';
+}
+
+async function sendAlert(mid){
+  const el=document.getElementById('alertSt');
+  el.innerHTML='<span class="text-acc">Sending...</span>';
+  try{
+    const r=await fetch(`/api/send-alert/${mid}`,{method:'POST'});
+    const d=await r.json();
+    el.innerHTML=`<span class="text-acc2">✓ Alert sent (${d.method})</span>`;
+  }catch(e){el.innerHTML='<span class="text-warn">⚠ Simulated (console)</span>';}
+}
+
+// Auto alarm + voice for critical
+{% for mid in machine_ids %}{% if predictions[mid].status=='Critical' %}
+setTimeout(playAlarm, 1200);
+setTimeout(() => speakCriticalAlert("{{ mid }}", "{{ predictions[mid].failure_type }}", "{{ predictions[mid].failure_probability }}"), 2000);
+{% endif %}{% endfor %}
+
+// Auto refresh every 5s (skip if sim running)
+setTimeout(()=>{ if(!_simTimer) window.location.reload(); }, 5000);
+
+// Daily report trigger
+async function sendDailyReport() {
+  const btn = document.getElementById('btnDailyReport');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="bi bi-hourglass-split me-1"></i>Sending...';
+  try {
+    const r = await fetch('/api/send-daily-report', {method:'POST'});
+    const d = await r.json();
+    btn.innerHTML = '<i class="bi bi-check-circle-fill me-1" style="color:#00ff88"></i>Sent!';
+    setTimeout(() => {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="bi bi-send me-1"></i>Daily Report';
+    }, 3000);
+  } catch(e) {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="bi bi-send me-1"></i>Daily Report';
+  }
+}
+
+}); // end DOMContentLoaded
+</script>
+{% endblock %}

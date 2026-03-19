@@ -1,0 +1,318 @@
+{% extends 'base.html' %}
+{% block title %}AI ChatBot — PredictMaint Pro{% endblock %}
+{% block content %}
+<div class="pm-title mb-3"><i class="bi bi-robot text-acc"></i> PredictBot — AI Maintenance Assistant</div>
+
+<div class="row g-3">
+  <!-- CHAT AREA -->
+  <div class="col-md-8">
+    <div class="pm-card" style="height:580px;display:flex;flex-direction:column">
+      <div class="pm-card-head">
+        <i class="bi bi-chat-dots"></i> PredictBot
+        <span id="botStatus" class="ms-2 st st-healthy" style="font-size:.65rem">● ONLINE</span>
+        <span class="ms-auto font-mono text-mut" style="font-size:.7rem" id="msgCount">0 messages</span>
+      </div>
+
+      <!-- Messages -->
+      <div id="chatBox" style="flex:1;overflow-y:auto;padding:.5rem;
+                                display:flex;flex-direction:column;gap:.75rem">
+        <!-- Welcome message -->
+        <div class="chat-msg bot">
+          <div class="chat-bubble bot-bubble">
+            👋 Hello <strong>{{ current_user.username }}</strong>!
+            I'm <strong>PredictBot</strong> — your AI maintenance assistant.<br><br>
+            I can answer questions about:<br>
+            🔴 Machine failures &amp; risks<br>
+            🌡️ Sensor readings (temp/vibration/pressure)<br>
+            💰 Maintenance costs<br>
+            ⏱️ Remaining useful life<br>
+            🏭 Factory overview<br><br>
+            <strong>Try asking me anything!</strong> Type 'help' for all commands.
+          </div>
+          <small class="text-mut">PredictBot • Just now</small>
+        </div>
+      </div>
+
+      <!-- Input -->
+      <div class="d-flex gap-2 pt-2" style="border-top:1px solid var(--border)">
+        <button class="pm-btn" id="micBtn" onclick="toggleVoice()" title="Click to speak" style="flex-shrink:0;transition:all .2s">
+          <i class="bi bi-mic-fill" id="micIcon"></i>
+        </button>
+        <input type="text" id="chatInput" class="form-control pm-inp"
+               placeholder="Ask anything... or click mic to speak"
+               autocomplete="off">
+        <button class="pm-btn" id="sendBtn" onclick="sendMessage()">
+          <i class="bi bi-send-fill"></i>
+        </button>
+      </div>
+      <div id="voiceStatus" style="font-size:.72rem;color:var(--accent);text-align:center;padding:4px 0;display:none">
+        🎤 Listening... speak now
+      </div>
+    </div>
+  </div>
+
+  <!-- SIDEBAR -->
+  <div class="col-md-4">
+    <!-- Quick Questions -->
+    <div class="pm-card mb-3">
+      <div class="pm-card-head"><i class="bi bi-lightning-fill text-warn"></i> Quick Questions</div>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        {% set questions = [
+          ("Which machine will fail next?", "bi-exclamation-triangle"),
+          ("Show factory summary", "bi-bar-chart"),
+          ("Temperature report", "bi-thermometer-half"),
+          ("Vibration report", "bi-activity"),
+          ("Pressure status", "bi-speedometer"),
+          ("Total maintenance cost", "bi-currency-rupee"),
+          ("Remaining useful life", "bi-clock"),
+          ("Anomaly detection results", "bi-search"),
+          ("Which machine is healthiest?", "bi-heart"),
+          ("Model accuracy", "bi-graph-up"),
+          ("Who is the operator?", "bi-person"),
+          ("Maintenance schedule", "bi-calendar"),
+          ("Operating hours report", "bi-stopwatch"),
+          ("Energy consumption", "bi-lightning"),
+          ("OEE report", "bi-gear"),
+        ] %}
+        {% for q, icon in questions %}
+        <button onclick="quickAsk('{{ q }}')"
+                style="background:var(--bgcard2);border:1px solid var(--border);
+                       color:var(--text);font-family:'Exo 2',sans-serif;
+                       font-size:.8rem;padding:7px 10px;border-radius:8px;
+                       text-align:left;cursor:pointer;transition:all .2s;
+                       display:flex;align-items:center;gap:8px"
+                onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'"
+                onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text)'">
+          <i class="bi {{ icon }} text-acc" style="font-size:.85rem;flex-shrink:0"></i>
+          {{ q }}
+        </button>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- Bot Info -->
+    <div class="pm-card">
+      <div class="pm-card-head"><i class="bi bi-info-circle"></i> About PredictBot</div>
+      <div style="font-size:.82rem;line-height:1.8;color:var(--muted)">
+        <div>🤖 25+ query types supported</div>
+        <div>📊 Reads live ML predictions</div>
+        <div>🏭 Knows all 6 machines</div>
+        <div>💰 Understands cost & RUL data</div>
+        <div>🌡️ Monitors all sensor data</div>
+        <div>⚡ Instant responses</div>
+        <div class="mt-2" style="color:var(--accent);font-size:.75rem">
+          {% if config_has_gemini %}
+          🤖 Powered by Google Gemini AI
+          {% else %}
+          💡 Add Gemini API key for real AI
+          {% endif %}
+        </div>
+        <div class="mt-3" style="border-top:1px solid var(--border);padding-top:10px">
+          <div style="font-size:.72rem;color:var(--muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:.08em">AI Tools</div>
+          <button onclick="generateMaintenanceSchedule()"
+                  style="width:100%;background:rgba(0,212,255,.08);border:1px solid var(--accent);
+                         color:var(--accent);font-size:.78rem;padding:8px 10px;border-radius:8px;
+                         cursor:pointer;display:flex;align-items:center;gap:8px;margin-bottom:6px">
+            <i class="bi bi-calendar-check" style="font-size:.85rem"></i>
+            Generate Maintenance Schedule
+          </button>
+          <button onclick="quickAsk('Show camera detected machines status')"
+                  style="width:100%;background:rgba(244,67,54,.08);border:1px solid rgba(244,67,54,.4);
+                         color:#f44336;font-size:.78rem;padding:8px 10px;border-radius:8px;
+                         cursor:pointer;display:flex;align-items:center;gap:8px">
+            <i class="bi bi-camera-video-fill" style="font-size:.85rem"></i>
+            Live Camera Status
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+.chat-msg{display:flex;flex-direction:column;max-width:85%}
+.chat-msg.user{align-self:flex-end;align-items:flex-end}
+.chat-msg.bot{align-self:flex-start;align-items:flex-start}
+.chat-bubble{padding:.7rem 1rem;border-radius:14px;font-size:.84rem;
+             line-height:1.65;max-width:100%;word-break:break-word}
+.bot-bubble{background:var(--bgcard2);border:1px solid var(--border);
+            color:var(--text);border-bottom-left-radius:4px}
+.user-bubble{background:linear-gradient(135deg,#00a8cc,#0077aa);
+             color:#fff;border-bottom-right-radius:4px}
+.typing-dots{display:flex;gap:5px;align-items:center;
+             padding:.7rem 1rem}
+.typing-dot{width:8px;height:8px;border-radius:50%;
+            background:var(--accent);
+            animation:tdot .8s infinite}
+.typing-dot:nth-child(2){animation-delay:.15s}
+.typing-dot:nth-child(3){animation-delay:.3s}
+@keyframes tdot{0%,100%{opacity:.3;transform:scale(.7)}
+                50%{opacity:1;transform:scale(1)}}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let msgCount = 0;
+
+function sendMessage() {
+  const input = document.getElementById('chatInput');
+  const msg   = input.value.trim();
+  if (!msg) return;
+
+  appendMsg(msg, 'user');
+  input.value = '';
+  input.focus();
+  document.getElementById('sendBtn').disabled = true;
+  showTyping();
+
+  fetch('/api/chat', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({message: msg})
+  })
+  .then(r => r.json())
+  .then(d => {
+    removeTyping();
+    appendMsg(d.reply || "Sorry, I couldn't process that.", 'bot', d.timestamp);
+    document.getElementById('sendBtn').disabled = false;
+  })
+  .catch(err => {
+    removeTyping();
+    appendMsg("⚠️ Connection error. Please try again.", 'bot');
+    document.getElementById('sendBtn').disabled = false;
+  });
+}
+
+function quickAsk(q) {
+  document.getElementById('chatInput').value = q;
+  sendMessage();
+}
+
+function appendMsg(text, type, time='') {
+  const box    = document.getElementById('chatBox');
+  const wrap   = document.createElement('div');
+  wrap.className = `chat-msg ${type}`;
+
+  const bubble = document.createElement('div');
+  bubble.className = `chat-bubble ${type}-bubble`;
+
+  // Format text: convert \n to <br>, bold **text**
+  let formatted = text
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/\n/g, '<br>')
+    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+    .replace(/`(.*?)`/g, '<code style="background:rgba(0,212,255,0.1);padding:1px 4px;border-radius:3px">$1</code>');
+
+  bubble.innerHTML = formatted;
+
+  const meta = document.createElement('small');
+  meta.className = 'text-mut';
+  meta.style.fontSize = '0.72rem';
+  const now = time || new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+  meta.textContent = type==='user'
+    ? `You • ${now}`
+    : `PredictBot • ${now}`;
+
+  wrap.appendChild(bubble);
+  wrap.appendChild(meta);
+  box.appendChild(wrap);
+  box.scrollTop = box.scrollHeight;
+
+  // Update message count
+  msgCount++;
+  document.getElementById('msgCount').textContent = `${msgCount} message${msgCount>1?'s':''}`;
+}
+
+function showTyping() {
+  const box  = document.getElementById('chatBox');
+  const wrap = document.createElement('div');
+  wrap.className = 'chat-msg bot';
+  wrap.id = 'typingIndicator';
+  const bubble = document.createElement('div');
+  bubble.className = 'chat-bubble bot-bubble typing-dots';
+  bubble.innerHTML = '<div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div>';
+  wrap.appendChild(bubble);
+  box.appendChild(wrap);
+  box.scrollTop = box.scrollHeight;
+}
+
+function removeTyping() {
+  const t = document.getElementById('typingIndicator');
+  if (t) t.remove();
+}
+
+// Send on Enter key
+document.getElementById('chatInput').addEventListener('keypress', e => {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    sendMessage();
+  }
+});
+
+
+// ── VOICE INPUT (Web Speech API — free, built into Chrome/Edge) ────────────
+let voiceRecognition = null;
+let voiceActive = false;
+
+function toggleVoice() {
+  if (!('SpeechRecognition' in window) && !('webkitSpeechRecognition' in window)) {
+    alert('Voice not supported in this browser. Use Chrome or Edge.');
+    return;
+  }
+  if (voiceActive) {
+    voiceRecognition.stop();
+    return;
+  }
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  voiceRecognition = new SR();
+  voiceRecognition.lang = 'en-IN';
+  voiceRecognition.interimResults = false;
+  voiceRecognition.maxAlternatives = 1;
+
+  voiceRecognition.onstart = () => {
+    voiceActive = true;
+    document.getElementById('micBtn').style.background = 'rgba(0,212,255,.2)';
+    document.getElementById('micBtn').style.borderColor = 'var(--accent)';
+    document.getElementById('micIcon').className = 'bi bi-mic-fill text-acc';
+    document.getElementById('voiceStatus').style.display = 'block';
+  };
+
+  voiceRecognition.onresult = (e) => {
+    const transcript = e.results[0][0].transcript;
+    document.getElementById('chatInput').value = transcript;
+    sendMessage();
+  };
+
+  voiceRecognition.onend = () => {
+    voiceActive = false;
+    document.getElementById('micBtn').style.background = '';
+    document.getElementById('micBtn').style.borderColor = '';
+    document.getElementById('micIcon').className = 'bi bi-mic-fill';
+    document.getElementById('voiceStatus').style.display = 'none';
+  };
+
+  voiceRecognition.onerror = (e) => {
+    voiceActive = false;
+    document.getElementById('voiceStatus').style.display = 'none';
+    document.getElementById('micIcon').className = 'bi bi-mic-fill';
+    if (e.error !== 'no-speech') {
+      document.getElementById('chatInput').placeholder = 'Voice error: ' + e.error;
+    }
+  };
+
+  voiceRecognition.start();
+}
+
+// ── AI MAINTENANCE SCHEDULE GENERATOR ─────────────────────────────────────
+async function generateMaintenanceSchedule() {
+  addMessage('Generate a complete maintenance schedule for all machines this week', 'user');
+  quickAsk('Generate a complete maintenance schedule for all 6 machines based on their current health and RUL values');
+}
+
+// Focus input on load
+document.getElementById('chatInput').focus();
+</script>
+{% endblock %}

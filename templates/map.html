@@ -1,0 +1,345 @@
+{% extends 'base.html' %}
+{% block title %}Factory Map — PredictMaint Pro{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<style>
+#factory-map {
+  height: 480px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  z-index: 1;
+}
+.leaflet-container { background: #0a1220 !important; }
+.machine-popup {
+  background: #0d1828;
+  border: 1px solid rgba(0,212,255,0.3);
+  border-radius: 10px;
+  color: #e0eaf5;
+  min-width: 220px;
+  font-family: 'Exo 2', sans-serif;
+}
+.machine-popup .title {
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 1rem; font-weight: 700;
+  color: #00d4ff; margin-bottom: 6px;
+}
+.machine-popup .row {
+  display: flex; justify-content: space-between;
+  font-size: 0.78rem; padding: 3px 0;
+  border-bottom: 1px solid rgba(0,212,255,0.08);
+}
+.machine-popup .row:last-child { border: none; }
+.machine-popup .label { color: #6688aa; }
+.machine-popup .val-ok   { color: #00ff88; font-weight: 600; }
+.machine-popup .val-warn { color: #ffaa00; font-weight: 600; }
+.machine-popup .val-crit { color: #ff3355; font-weight: 600; animation: blink 1s infinite; }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.4} }
+.pulse-ring {
+  border-radius: 50%;
+  animation: pulse-map 1.5s infinite;
+}
+@keyframes pulse-map {
+  0%   { transform: scale(0.8); opacity: 1; }
+  100% { transform: scale(2.5); opacity: 0; }
+}
+.leaflet-popup-content-wrapper {
+  background: #0d1828 !important;
+  border: 1px solid rgba(0,212,255,0.3) !important;
+  border-radius: 10px !important;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5) !important;
+  color: #e0eaf5 !important;
+  padding: 0 !important;
+}
+.leaflet-popup-tip { background: #0d1828 !important; }
+.leaflet-popup-content { margin: 0 !important; padding: 0 !important; }
+.live-indicator { animation: blink 1s infinite; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+  <div class="pm-title"><i class="bi bi-map text-acc"></i> Live Factory Floor Map</div>
+  <div class="d-flex gap-2 align-items-center">
+    <span class="st st-healthy live-indicator">● LIVE</span>
+    <button class="pm-btn pm-btn-sm" onclick="refreshMap()">
+      <i class="bi bi-arrow-clockwise"></i> Refresh
+    </button>
+    <button class="pm-btn pm-btn-sm" id="btnTgReport"
+            onclick="sendTelegramReport()" title="Send daily report to Telegram">
+      <i class="bi bi-telegram"></i> Send Report
+    </button>
+  </div>
+</div>
+
+<!-- Status Summary Cards -->
+<div class="row g-3 mb-3">
+  {% for mid, pred in predictions.items() %}
+  <div class="col-6 col-md-2">
+    <div class="pm-met" style="cursor:pointer;border:1px solid {{ 'rgba(255,51,85,.4)' if pred.status=='Critical' else 'rgba(255,170,0,.3)' if pred.status=='Warning' else 'rgba(0,255,136,.2)' }}"
+         onclick="focusMachine('{{ mid }}')">
+      <div class="val {{ 'text-dng' if pred.status=='Critical' else 'text-warn' if pred.status=='Warning' else 'text-acc2' }}"
+           style="font-size:1.3rem">{{ pred.health_score }}%</div>
+      <div class="lbl">{{ mid }}</div>
+      <span class="st st-{{ pred.status|lower }}" style="font-size:.6rem;margin-top:4px">{{ pred.status }}</span>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<!-- Map -->
+<div class="pm-card mb-3">
+  <div class="pm-card-head">
+    <i class="bi bi-geo-alt"></i> Interactive Factory Floor — Click any marker for details
+    <span class="ms-auto font-mono text-mut" style="font-size:.72rem" id="mapTime"></span>
+  </div>
+  <div id="factory-map"></div>
+</div>
+
+<!-- Legend -->
+<div class="pm-card mb-3">
+  <div class="pm-card-head"><i class="bi bi-info-circle"></i> Map Legend</div>
+  <div class="d-flex gap-4 flex-wrap">
+    <div class="d-flex align-items-center gap-2">
+      <div style="width:16px;height:16px;border-radius:50%;background:#ff3355;box-shadow:0 0 8px #ff3355"></div>
+      <small>Critical Machine</small>
+    </div>
+    <div class="d-flex align-items-center gap-2">
+      <div style="width:16px;height:16px;border-radius:50%;background:#ffaa00;box-shadow:0 0 8px #ffaa00"></div>
+      <small>Warning Machine</small>
+    </div>
+    <div class="d-flex align-items-center gap-2">
+      <div style="width:16px;height:16px;border-radius:50%;background:#00ff88;box-shadow:0 0 8px #00ff88"></div>
+      <small>Healthy Machine</small>
+    </div>
+    <div class="d-flex align-items-center gap-2">
+      <div style="width:16px;height:16px;border-radius:50%;background:rgba(0,212,255,0.3);border:2px solid #00d4ff"></div>
+      <small>Zone Boundary</small>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const predictions = {{ predictions | tojson }};
+const machines    = {{ machines | tojson }};
+
+// Machine coordinates on factory floor (normalized lat/lng for indoor map)
+const machineCoords = {
+  'MCH-101': [51.510, -0.120],
+  'MCH-102': [51.510, -0.100],
+  'MCH-103': [51.505, -0.110],
+  'MCH-104': [51.515, -0.120],
+  'MCH-105': [51.515, -0.100],
+  'MCH-106': [51.505, -0.090],
+};
+
+// Zone coordinates
+const zones = [
+  { name:'Zone A', bounds:[[51.502,-0.125],[51.512,-0.105]], color:'rgba(0,212,255,0.1)' },
+  { name:'Zone B', bounds:[[51.508,-0.105],[51.518,-0.085]], color:'rgba(0,255,136,0.08)' },
+  { name:'Zone C', bounds:[[51.512,-0.125],[51.520,-0.095]], color:'rgba(255,170,0,0.08)' },
+];
+
+// Initialize map
+const map = L.map('factory-map', {
+  center: [51.510, -0.107],
+  zoom: 14,
+  zoomControl: true,
+  attributionControl: false,
+});
+
+// Dark tile layer
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+  maxZoom: 19,
+  opacity: 0.6,
+}).addTo(map);
+
+// Add zones
+zones.forEach(z => {
+  L.rectangle(z.bounds, {
+    color: '#00d4ff', weight: 1, opacity: 0.4,
+    fillColor: z.color, fillOpacity: 0.3,
+    dashArray: '6,4',
+  }).bindTooltip(`<strong style="color:#00d4ff">${z.name}</strong>`, {
+    permanent: true, direction: 'center',
+    className: 'zone-label',
+  }).addTo(map);
+});
+
+// Create custom marker icon
+function createIcon(status) {
+  const colors = {
+    'Critical': { main:'#ff3355', glow:'rgba(255,51,85,0.4)' },
+    'Warning':  { main:'#ffaa00', glow:'rgba(255,170,0,0.4)' },
+    'Healthy':  { main:'#00ff88', glow:'rgba(0,255,136,0.4)' },
+  };
+  const c = colors[status] || colors['Healthy'];
+  const pulse = status === 'Critical' ? `
+    <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+                width:40px;height:40px;border-radius:50%;
+                background:${c.main};opacity:0.3;
+                animation:pulse-map 1.2s infinite;"></div>` : '';
+
+  return L.divIcon({
+    className: '',
+    iconSize:  [36, 36],
+    iconAnchor:[18, 18],
+    popupAnchor:[0, -20],
+    html: `
+      <div style="position:relative;width:36px;height:36px">
+        ${pulse}
+        <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+                    width:24px;height:24px;border-radius:50%;
+                    background:${c.main};
+                    box-shadow:0 0 12px ${c.glow},0 0 4px ${c.main};
+                    border:2px solid rgba(255,255,255,0.3);
+                    display:flex;align-items:center;justify-content:center;
+                    font-size:10px;font-weight:700;color:#000">
+          ⚙
+        </div>
+      </div>`,
+  });
+}
+
+// Build popup content
+function buildPopup(mid) {
+  const p = predictions[mid];
+  const m = machines[mid];
+  const sc = p.status==='Critical' ? 'val-crit' : p.status==='Warning' ? 'val-warn' : 'val-ok';
+  return `
+    <div style="padding:12px;min-width:220px;font-family:'Exo 2',sans-serif">
+      <div style="font-family:'Rajdhani',sans-serif;font-size:1rem;font-weight:700;
+                  color:#00d4ff;margin-bottom:8px">
+        ${mid} — ${m.name}
+      </div>
+      <div style="font-size:0.75rem">
+        <div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid rgba(0,212,255,0.1)">
+          <span style="color:#6688aa">Status</span>
+          <span class="${sc}" style="color:${p.status==='Critical'?'#ff3355':p.status==='Warning'?'#ffaa00':'#00ff88'};font-weight:600">${p.status}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid rgba(0,212,255,0.1)">
+          <span style="color:#6688aa">Health Score</span>
+          <span style="color:#00d4ff;font-weight:600">${p.health_score}%</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid rgba(0,212,255,0.1)">
+          <span style="color:#6688aa">Failure Risk</span>
+          <span style="color:${p.failure_probability>60?'#ff3355':p.failure_probability>30?'#ffaa00':'#00ff88'};font-weight:600">${p.failure_probability}%</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid rgba(0,212,255,0.1)">
+          <span style="color:#6688aa">RUL Days</span>
+          <span style="color:${p.rul_days<10?'#ff3355':p.rul_days<20?'#ffaa00':'#00ff88'};font-weight:600">${p.rul_days}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid rgba(0,212,255,0.1)">
+          <span style="color:#6688aa">Failure Type</span>
+          <span style="color:#ffaa00">${p.failure_type}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid rgba(0,212,255,0.1)">
+          <span style="color:#6688aa">Temperature</span>
+          <span style="color:#aabbcc">${p.readings.temperature}°C</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid rgba(0,212,255,0.1)">
+          <span style="color:#6688aa">Operator</span>
+          <span style="color:#aabbcc">${m.operator}</span>
+        </div>
+      </div>
+      <div style="display:flex;gap:6px;margin-top:10px">
+        <a href="/search?machine_id=${mid}"
+           style="flex:1;background:linear-gradient(135deg,#00a8cc,#0077aa);
+                  border:none;color:#fff;padding:5px 8px;border-radius:6px;
+                  text-align:center;font-size:0.75rem;text-decoration:none;
+                  font-family:'Rajdhani',sans-serif;font-weight:600">
+          🔍 Details
+        </a>
+        <a href="/report/pdf/${mid}"
+           style="flex:1;background:linear-gradient(135deg,#cc4400,#ff6600);
+                  border:none;color:#fff;padding:5px 8px;border-radius:6px;
+                  text-align:center;font-size:0.75rem;text-decoration:none;
+                  font-family:'Rajdhani',sans-serif;font-weight:600">
+          📄 PDF
+        </a>
+      </div>
+    </div>`;
+}
+
+// Add machine markers
+const markers = {};
+Object.keys(machineCoords).forEach(mid => {
+  if (!predictions[mid]) return;
+  const p      = predictions[mid];
+  const coord  = machineCoords[mid];
+  const marker = L.marker(coord, { icon: createIcon(p.status) });
+  marker.bindPopup(buildPopup(mid), {
+    maxWidth: 260, className: 'machine-popup-container'
+  });
+  marker.bindTooltip(
+    `<span style="font-family:'Share Tech Mono',monospace;color:#00d4ff">${mid}</span>`,
+    { permanent: false, direction: 'top' }
+  );
+  marker.addTo(map);
+  markers[mid] = marker;
+});
+
+// Focus on a machine when card is clicked
+function focusMachine(mid) {
+  if (markers[mid]) {
+    map.setView(machineCoords[mid], 16, { animate: true, duration: 0.8 });
+    setTimeout(() => markers[mid].openPopup(), 500);
+  }
+}
+
+// Refresh map markers
+function refreshMap() {
+  fetch('/api/predictions')
+    .then(r => r.json())
+    .then(data => {
+      Object.keys(data).forEach(mid => {
+        if (markers[mid]) {
+          const newIcon = createIcon(data[mid].status);
+          markers[mid].setIcon(newIcon);
+          markers[mid].setPopupContent(buildPopup(mid));
+        }
+      });
+      document.getElementById('mapTime').textContent =
+        'Updated: ' + new Date().toLocaleTimeString();
+    })
+    .catch(e => console.error('Map refresh error:', e));
+}
+
+// Telegram daily report
+async function sendTelegramReport() {
+  const btn = document.getElementById('btnTgReport');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Sending...';
+  try {
+    const r = await fetch('/api/telegram-report', { method: 'POST' });
+    const d = await r.json();
+    btn.innerHTML = d.success
+      ? '<i class="bi bi-check-circle"></i> Sent!'
+      : '<i class="bi bi-x-circle"></i> Failed';
+    btn.style.background = d.success
+      ? 'linear-gradient(135deg,#00aa66,#00ff88)'
+      : 'linear-gradient(135deg,#cc2244,#ff3355)';
+  } catch(e) {
+    btn.innerHTML = '<i class="bi bi-x-circle"></i> Error';
+  }
+  setTimeout(() => {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="bi bi-telegram"></i> Send Report';
+    btn.style.background = '';
+  }, 3000);
+}
+
+// Clock update
+setInterval(() => {
+  document.getElementById('mapTime').textContent =
+    new Date().toLocaleTimeString();
+}, 1000);
+
+// Auto-refresh markers every 10 seconds
+setInterval(refreshMap, 10000);
+refreshMap();
+</script>
+{% endblock %}

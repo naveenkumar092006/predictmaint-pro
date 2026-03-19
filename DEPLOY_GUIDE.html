@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PredictMaint Pro — Deployment Guide</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',Arial,sans-serif;background:#0a1628;color:#d0dde8;line-height:1.7}
+.hero{background:linear-gradient(135deg,#0a1628,#0d2847);padding:48px 32px;text-align:center;border-bottom:3px solid #00b4d8}
+.hero h1{font-size:2.4rem;color:#fff;margin-bottom:8px}
+.hero h1 span{color:#00b4d8}
+.hero p{color:#6888a8;font-size:1.1rem}
+.container{max-width:860px;margin:0 auto;padding:32px 20px}
+.step{background:#0d1f35;border:1px solid rgba(0,180,216,.15);border-radius:14px;
+      margin-bottom:28px;overflow:hidden}
+.step-head{background:linear-gradient(135deg,#0d2847,#0a1e3a);
+           padding:18px 24px;display:flex;align-items:center;gap:16px;
+           border-bottom:1px solid rgba(0,180,216,.1)}
+.step-num{width:42px;height:42px;background:#00b4d8;border-radius:50%;
+          display:flex;align-items:center;justify-content:center;
+          font-size:1.1rem;font-weight:700;color:#fff;flex-shrink:0}
+.step-num.done{background:#00c878}
+.step-num.warn{background:#ff8c00}
+.step-title{font-size:1.1rem;font-weight:600;color:#fff}
+.step-sub{font-size:.82rem;color:#6888a8;margin-top:2px}
+.step-body{padding:20px 24px}
+.step-body p{color:#90b4cc;margin-bottom:12px;font-size:.93rem}
+.cmd-block{background:#050e1a;border:1px solid rgba(0,212,255,.15);border-radius:9px;
+           padding:14px 18px;margin:12px 0;font-family:'Courier New',monospace;
+           font-size:.88rem;color:#00ff88;position:relative;overflow-x:auto}
+.cmd-block .comment{color:#4a6080;font-style:italic}
+.tip{background:rgba(0,180,216,.08);border:1px solid rgba(0,180,216,.2);border-left:4px solid #00b4d8;
+     border-radius:0 9px 9px 0;padding:12px 16px;margin:12px 0;font-size:.88rem;color:#90c4d8}
+.warn-box{background:rgba(255,140,0,.08);border:1px solid rgba(255,140,0,.25);border-left:4px solid #ff8c00;
+          border-radius:0 9px 9px 0;padding:12px 16px;margin:12px 0;font-size:.88rem;color:#ffb04a}
+.success-box{background:rgba(0,200,120,.08);border:1px solid rgba(0,200,120,.25);border-left:4px solid #00c878;
+             border-radius:0 9px 9px 0;padding:12px 16px;margin:12px 0;font-size:.88rem;color:#5af0a0}
+.ol{padding-left:0;list-style:none;counter-reset:ol-counter}
+.ol li{counter-increment:ol-counter;padding:6px 0 6px 36px;position:relative;
+       font-size:.9rem;color:#90b4cc;border-bottom:1px solid rgba(255,255,255,.04)}
+.ol li:last-child{border:none}
+.ol li::before{content:counter(ol-counter);position:absolute;left:0;
+               width:24px;height:24px;background:rgba(0,180,216,.15);
+               border-radius:50%;display:flex;align-items:center;justify-content:center;
+               font-size:.75rem;font-weight:700;color:#00b4d8;text-align:center;line-height:24px}
+.var-table{width:100%;border-collapse:collapse;margin:12px 0;font-size:.85rem}
+.var-table th{background:#050e1a;color:#6888a8;padding:8px 12px;text-align:left;
+              font-size:.75rem;text-transform:uppercase;letter-spacing:.05em}
+.var-table td{padding:9px 12px;border-bottom:1px solid rgba(0,212,255,.06);color:#90b4cc}
+.var-table td:first-child{font-family:'Courier New',monospace;color:#00b4d8;font-weight:600}
+.var-table tr:last-child td{border:none}
+.platform-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:12px 0}
+.platform-card{background:#050e1a;border:1px solid rgba(0,212,255,.12);border-radius:10px;padding:14px}
+.platform-card h4{color:#00b4d8;font-size:.9rem;margin-bottom:8px}
+.platform-card p{font-size:.82rem;color:#6888a8}
+.err-list{list-style:none;padding:0}
+.err-list li{padding:10px 14px;margin-bottom:8px;background:#050e1a;
+             border-radius:8px;font-size:.85rem;border-left:3px solid #ff3355}
+.err-list li strong{color:#ff6688;display:block;margin-bottom:4px}
+.err-list li span{color:#6888a8}
+.quick-ref{background:#050e1a;border:1px solid rgba(0,255,136,.15);border-radius:12px;padding:20px 24px}
+.quick-ref h3{color:#00ff88;margin-bottom:14px;font-size:1rem}
+footer{text-align:center;padding:32px;color:#3a5060;font-size:.82rem;border-top:1px solid rgba(0,212,255,.08)}
+@media(max-width:600px){.platform-grid{grid-template-columns:1fr}.hero h1{font-size:1.7rem}}
+</style>
+</head>
+<body>
+<div class="hero">
+  <h1>⚙️ <span>PredictMaint</span> Pro</h1>
+  <p>Complete Deployment Guide — From Your Laptop to a Live Website</p>
+</div>
+
+<div class="container">
+
+<!-- STEP 1 -->
+<div class="step">
+  <div class="step-head">
+    <div class="step-num">1</div>
+    <div><div class="step-title">Install Git on your laptop</div>
+    <div class="step-sub">One-time setup — takes 2 minutes</div></div>
+  </div>
+  <div class="step-body">
+    <ol class="ol">
+      <li>Go to <strong style="color:#00b4d8">git-scm.com/downloads</strong> → Download for Windows</li>
+      <li>Run the installer → click Next on everything → Finish</li>
+      <li>Restart Command Prompt</li>
+      <li>Verify it worked:</li>
+    </ol>
+    <div class="cmd-block">git --version<br><span class="comment"># Should show: git version 2.43.0 (or similar)</span></div>
+  </div>
+</div>
+
+<!-- STEP 2 -->
+<div class="step">
+  <div class="step-head">
+    <div class="step-num">2</div>
+    <div><div class="step-title">Create a GitHub account</div>
+    <div class="step-sub">Free — needed to host your code</div></div>
+  </div>
+  <div class="step-body">
+    <ol class="ol">
+      <li>Go to <strong style="color:#00b4d8">github.com</strong> → click "Sign up"</li>
+      <li>Enter your email, create a password, choose a username</li>
+      <li>Verify your email (check your inbox)</li>
+      <li>Choose the <strong>FREE plan</strong></li>
+    </ol>
+  </div>
+</div>
+
+<!-- STEP 3 -->
+<div class="step">
+  <div class="step-head">
+    <div class="step-num">3</div>
+    <div><div class="step-title">Extract your project</div>
+    <div class="step-sub">Get the files ready on your laptop</div></div>
+  </div>
+  <div class="step-body">
+    <ol class="ol">
+      <li>Find the file: <strong style="color:#00b4d8">predictive_maintenance_v7_DEPLOY.zip</strong></li>
+      <li>Right-click → "Extract All" → choose a folder (e.g. <code style="color:#00ff88">C:\Projects\</code>)</li>
+      <li>You will get a folder called: <code style="color:#00ff88">pm_v7</code></li>
+    </ol>
+    <div class="tip">Inside pm_v7 you should see: app.py, models.py, templates/, static/, etc.</div>
+  </div>
+</div>
+
+<!-- STEP 4 -->
+<div class="step">
+  <div class="step-head">
+    <div class="step-num">4</div>
+    <div><div class="step-title">Open Command Prompt</div>
+    <div class="step-sub">The black window where you type commands</div></div>
+  </div>
+  <div class="step-body">
+    <p>Press <strong style="color:#00b4d8">Win + R</strong> on your keyboard → type <code style="color:#00ff88">cmd</code> → press Enter</p>
+    <p>A black window opens. This is Command Prompt. All commands go here.</p>
+  </div>
+</div>
+
+<!-- STEP 5 -->
+<div class="step">
+  <div class="step-head">
+    <div class="step-num">5</div>
+    <div><div class="step-title">Navigate to your project folder</div>
+    <div class="step-sub">Tell Command Prompt where your files are</div></div>
+  </div>
+  <div class="step-body">
+    <div class="cmd-block">cd C:\Projects\pm_v7<br><span class="comment"># Change the path to wherever you extracted the zip</span></div>
+    <p>The prompt changes to show <code style="color:#00ff88">C:\Projects\pm_v7&gt;</code></p>
+    <p>To verify you are in the right folder, type <code style="color:#00ff88">dir</code> — you should see app.py listed.</p>
+  </div>
+</div>
+
+<!-- STEP 6 -->
+<div class="step">
+  <div class="step-head">
+    <div class="step-num">6</div>
+    <div><div class="step-title">Set up Git (one time only)</div>
+    <div class="step-sub">Tell Git who you are</div></div>
+  </div>
+  <div class="step-body">
+    <div class="cmd-block">git config --global user.name "Vinay"<br>git config --global user.email "your@gmail.com"</div>
+    <div class="tip">No output after these commands = success ✅</div>
+  </div>
+</div>
+
+<!-- STEP 7-9 -->
+<div class="step">
+  <div class="step-head">
+    <div class="step-num">7</div>
+    <div><div class="step-title">Initialize, add files, and commit</div>
+    <div class="step-sub">Save your project snapshot in Git</div></div>
+  </div>
+  <div class="step-body">
+    <div class="cmd-block">git init<br><span class="comment"># Creates a Git repository in your folder</span></div>
+    <div class="cmd-block">git add .<br><span class="comment"># Adds ALL files (the dot means everything)</span></div>
+    <div class="cmd-block">git commit -m "PredictMaint Pro v7 Hackathon"<br><span class="comment"># Saves a snapshot — you'll see a list of files</span></div>
+    <div class="success-box">✅ After commit you'll see: "1 file changed" or many files changed. That means success!</div>
+  </div>
+</div>
+
+<!-- STEP 8 -->
+<div class="step">
+  <div class="step-head">
+    <div class="step-num">8</div>
+    <div><div class="step-title">Create a repository on GitHub website</div>
+    <div class="step-sub">This is where your code lives online</div></div>
+  </div>
+  <div class="step-body">
+    <ol class="ol">
+      <li>Go to <strong style="color:#00b4d8">github.com</strong> → click the <strong>+</strong> button (top right)</li>
+      <li>Click "New repository"</li>
+      <li>Repository name: <code style="color:#00ff88">predictmaint-pro</code></li>
+      <li>Select: <strong>Public</strong></li>
+      <li>Do NOT tick "Add README" or any other checkbox</li>
+      <li>Click the green "Create repository" button</li>
+    </ol>
+  </div>
+</div>
+
+<!-- STEP 9 -->
+<div class="step">
+  <div class="step-head">
+    <div class="step-num">9</div>
+    <div><div class="step-title">Get a GitHub Personal Access Token</div>
+    <div class="step-sub">GitHub password won't work — you need a token</div></div>
+  </div>
+  <div class="step-body">
+    <ol class="ol">
+      <li>Click your profile picture (top right on GitHub) → Settings</li>
+      <li>Scroll all the way down → click "Developer settings"</li>
+      <li>Personal access tokens → Tokens (classic) → Generate new token (classic)</li>
+      <li>Note: "Deploy token" | Expiration: 90 days</li>
+      <li>Tick the box next to <strong style="color:#00b4d8">repo</strong> (top checkbox)</li>
+      <li>Click "Generate token" at the bottom</li>
+      <li>COPY the token immediately — starts with <code style="color:#00ff88">ghp_...</code></li>
+    </ol>
+    <div class="warn-box">⚠️ Save this token somewhere safe! GitHub only shows it ONCE. You will use it as your password.</div>
+  </div>
+</div>
+
+<!-- STEP 10 -->
+<div class="step">
+  <div class="step-head">
+    <div class="step-num">10</div>
+    <div><div class="step-title">Push your code to GitHub</div>
+    <div class="step-sub">Upload everything online</div></div>
+  </div>
+  <div class="step-body">
+    <p>GitHub showed you these commands after creating the repo. Replace YOURNAME with your GitHub username:</p>
+    <div class="cmd-block">git remote add origin https://github.com/YOURNAME/predictmaint-pro.git<br>git branch -M main<br>git push -u origin main</div>
+    <p>When it asks:</p>
+    <ol class="ol">
+      <li>Username: your GitHub username</li>
+      <li>Password: paste your Personal Access Token (from Step 9)</li>
+    </ol>
+    <div class="success-box">✅ Refresh github.com/YOURNAME/predictmaint-pro — you should see all your files!</div>
+  </div>
+</div>
+
+<!-- STEP 11 -->
+<div class="step">
+  <div class="step-head">
+    <div class="step-num">11</div>
+    <div><div class="step-title">Get Gmail App Password (for OTP)</div>
+    <div class="step-sub">Your regular Gmail password won't work for sending emails</div></div>
+  </div>
+  <div class="step-body">
+    <ol class="ol">
+      <li>Go to <strong style="color:#00b4d8">myaccount.google.com</strong></li>
+      <li>Click "Security" in the left menu</li>
+      <li>Under "How you sign in to Google" → click "2-Step Verification" → Enable it</li>
+      <li>Scroll down → click "App passwords"</li>
+      <li>Select app: <strong>Mail</strong> | Select device: <strong>Windows Computer</strong></li>
+      <li>Click "Generate"</li>
+      <li>Copy the 16-character password (like: <code style="color:#00ff88">abcd efgh ijkl mnop</code>)</li>
+    </ol>
+    <div class="tip">💡 Use this 16-char password (without spaces) as MAIL_PASSWORD on Render</div>
+  </div>
+</div>
+
+<!-- STEP 12 -->
+<div class="step">
+  <div class="step-head">
+    <div class="step-num">12</div>
+    <div><div class="step-title">Get Gemini API Key (for AI ChatBot)</div>
+    <div class="step-sub">Free — 60 requests per minute</div></div>
+  </div>
+  <div class="step-body">
+    <ol class="ol">
+      <li>Go to <strong style="color:#00b4d8">aistudio.google.com</strong></li>
+      <li>Sign in with your Google account</li>
+      <li>Click "Get API Key" → "Create API Key"</li>
+      <li>Copy the key (starts with <code style="color:#00ff88">AIzaSy...</code>)</li>
+    </ol>
+  </div>
+</div>
+
+<!-- STEP 13 -->
+<div class="step">
+  <div class="step-head">
+    <div class="step-num done">13</div>
+    <div><div class="step-title">Deploy on Render.com</div>
+    <div class="step-sub">Your website goes live here — completely free</div></div>
+  </div>
+  <div class="step-body">
+    <ol class="ol">
+      <li>Go to <strong style="color:#00b4d8">render.com</strong> → "Get Started for Free"</li>
+      <li>Sign up with your GitHub account</li>
+      <li>Click "New +" → "Web Service"</li>
+      <li>Connect your <strong>predictmaint-pro</strong> repo</li>
+      <li>Fill in these settings exactly:</li>
+    </ol>
+    <table class="var-table" style="margin-top:12px">
+      <tr><th>Setting</th><th>Value</th></tr>
+      <tr><td>Name</td><td>predictmaint-pro</td></tr>
+      <tr><td>Region</td><td>Singapore (closest to India)</td></tr>
+      <tr><td>Branch</td><td>main</td></tr>
+      <tr><td>Build Command</td><td>pip install -r requirements.txt</td></tr>
+      <tr><td>Start Command</td><td>gunicorn wsgi:app --workers 2 --timeout 120 --bind 0.0.0.0:$PORT</td></tr>
+      <tr><td>Plan</td><td>Free</td></tr>
+    </table>
+    <p style="margin-top:14px">6. Click "Create Web Service"</p>
+    <p>7. Click "Environment" in the left panel → add these variables:</p>
+    <table class="var-table" style="margin-top:8px">
+      <tr><th>Key</th><th>Value</th></tr>
+      <tr><td>SECRET_KEY</td><td>PredictMaintPro2024Secure!</td></tr>
+      <tr><td>RENDER</td><td>true</td></tr>
+      <tr><td>MAIL_USERNAME</td><td>your Gmail address</td></tr>
+      <tr><td>MAIL_PASSWORD</td><td>your 16-char App Password</td></tr>
+      <tr><td>GEMINI_API_KEY</td><td>AIzaSy... from Step 12</td></tr>
+    </table>
+    <p style="margin-top:12px">8. Click "Save Changes" → Render deploys automatically!</p>
+    <div class="success-box">🎉 After 3-5 minutes your site is live at:<br><strong>https://predictmaint-pro.onrender.com</strong></div>
+  </div>
+</div>
+
+<!-- STEP 14 -->
+<div class="step">
+  <div class="step-head">
+    <div class="step-num done">14</div>
+    <div><div class="step-title">Add free PostgreSQL database (optional)</div>
+    <div class="step-sub">For persistent data storage instead of SQLite</div></div>
+  </div>
+  <div class="step-body">
+    <ol class="ol">
+      <li>In Render dashboard → "New +" → "PostgreSQL"</li>
+      <li>Name: predictmaint-db | Plan: Free → "Create Database"</li>
+      <li>Copy the "Internal Database URL"</li>
+      <li>Go to your Web Service → Environment → add:<br>
+          Key: <code style="color:#00b4d8">DATABASE_URL</code> | Value: paste the URL</li>
+      <li>Save → app automatically uses PostgreSQL!</li>
+    </ol>
+  </div>
+</div>
+
+<!-- LOGIN -->
+<div class="step">
+  <div class="step-head">
+    <div class="step-num done">✓</div>
+    <div><div class="step-title">Login to your live website</div>
+    <div class="step-sub">Your factory monitoring system is running!</div></div>
+  </div>
+  <div class="step-body">
+    <table class="var-table">
+      <tr><th>Field</th><th>Value</th></tr>
+      <tr><td>URL</td><td>https://predictmaint-pro.onrender.com</td></tr>
+      <tr><td>Username</td><td>admin</td></tr>
+      <tr><td>Password</td><td>Admin@123</td></tr>
+      <tr><td>OTP</td><td>Check your Gmail inbox</td></tr>
+    </table>
+    <div class="warn-box">⚠️ First visit after the free plan sleeps takes 30-60 seconds to wake up. Normal!</div>
+  </div>
+</div>
+
+<!-- FUTURE UPDATES -->
+<div class="step">
+  <div class="step-head">
+    <div class="step-num">↻</div>
+    <div><div class="step-title">Update your website in the future</div>
+    <div class="step-sub">Any code change → 3 commands → live in 2 minutes</div></div>
+  </div>
+  <div class="step-body">
+    <div class="cmd-block">git add .<br>git commit -m "describe your change"<br>git push</div>
+    <p>Render detects the push automatically and redeploys. That's it!</p>
+  </div>
+</div>
+
+<!-- TROUBLESHOOTING -->
+<div class="step">
+  <div class="step-head">
+    <div class="step-num warn">!</div>
+    <div><div class="step-title">Troubleshooting common errors</div>
+    <div class="step-sub">If something goes wrong — fix it here</div></div>
+  </div>
+  <div class="step-body">
+    <ul class="err-list">
+      <li><strong>❌ "git is not recognized"</strong><span>Git not installed. Restart Command Prompt. Or reinstall from git-scm.com</span></li>
+      <li><strong>❌ "Authentication failed" when pushing</strong><span>Use your Personal Access Token (ghp_...) as password — not your GitHub password</span></li>
+      <li><strong>❌ "Application error" on Render</strong><span>Click "Logs" in Render → most common: missing environment variable. Check SECRET_KEY and RENDER=true are set</span></li>
+      <li><strong>❌ OTP not arriving in Gmail</strong><span>Check MAIL_PASSWORD is the 16-char App Password (not your Gmail login password). Check spam folder.</span></li>
+      <li><strong>❌ App very slow to load</strong><span>Free Render plan sleeps after 15 min inactivity. First request takes 30-60 sec. Totally normal!</span></li>
+      <li><strong>❌ ChatBot says "quota exceeded"</strong><span>Gemini free quota is 60 requests/min. Wait 1 minute. Rule-based fallback still works perfectly.</span></li>
+    </ul>
+  </div>
+</div>
+
+<!-- ALTERNATIVE PLATFORMS -->
+<div class="step">
+  <div class="step-head">
+    <div class="step-num">~</div>
+    <div><div class="step-title">Alternative free platforms</div>
+    <div class="step-sub">If Render doesn't work for you</div></div>
+  </div>
+  <div class="step-body">
+    <div class="platform-grid">
+      <div class="platform-card">
+        <h4>Railway.app</h4>
+        <p>500 hrs/month free<br>railway.toml already in project<br>Go to railway.app → Deploy from GitHub</p>
+      </div>
+      <div class="platform-card">
+        <h4>PythonAnywhere</h4>
+        <p>Always free tier<br>No credit card needed<br>pythonanywhere.com → Free account</p>
+      </div>
+      <div class="platform-card">
+        <h4>Koyeb</h4>
+        <p>Free forever plan<br>Fast European servers<br>koyeb.com → Deploy from GitHub</p>
+      </div>
+      <div class="platform-card">
+        <h4>Fly.io</h4>
+        <p>Generous free tier<br>Global deployment<br>fly.io → flyctl deploy</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- QUICK REFERENCE -->
+<div class="quick-ref">
+  <h3>⚡ Quick Reference — All Commands in Order</h3>
+  <div class="cmd-block" style="margin-top:14px">
+cd C:\Projects\pm_v7<br>
+git config --global user.name "Your Name"<br>
+git config --global user.email "your@gmail.com"<br>
+git init<br>
+git add .<br>
+git commit -m "PredictMaint Pro v7"<br>
+git remote add origin https://github.com/YOURNAME/predictmaint-pro.git<br>
+git branch -M main<br>
+git push -u origin main<br>
+<span class="comment"># Then go to render.com and follow Steps 13-14</span>
+  </div>
+</div>
+
+</div>
+<footer>
+  PredictMaint Pro v7.0 — Industrial Predictive Maintenance System<br>
+  Deployment guide — step by step from laptop to live website
+</footer>
+</body>
+</html>

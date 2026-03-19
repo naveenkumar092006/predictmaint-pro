@@ -1,0 +1,121 @@
+{% extends 'base.html' %}
+{% block title %}Maintenance History — PredictMaint Pro{% endblock %}
+{% block content %}
+<div class="pm-title mb-3"><i class="bi bi-clock-history text-acc"></i> Maintenance History Log</div>
+
+<!-- Filter -->
+<div class="pm-card mb-3">
+  <form method="GET" class="d-flex align-items-center gap-3 flex-wrap">
+    <label class="text-mut small">Filter by Machine:</label>
+    <select name="machine_id" class="form-select pm-sel" style="width:220px" onchange="this.form.submit()">
+      <option value="">— All Machines —</option>
+      {% for mid,info in machines.items() %}
+      <option value="{{ mid }}" {% if filter_mid==mid %}selected{% endif %}>{{ mid }} — {{ info.name }}</option>
+      {% endfor %}
+    </select>
+    {% if filter_mid %}
+    <a href="/maintenance-history" class="pm-btn pm-btn-sm">Clear Filter</a>
+    {% endif %}
+  </form>
+</div>
+
+<!-- Stats -->
+{% if history %}
+<div class="row g-3 mb-3">
+  {% set total_cost = history|sum(attribute='cost') %}
+  {% set avg_imp = (history|sum(attribute='improvement') / history|length)|round(1) %}
+  {% for lbl,val,cls in [
+    ('Total Records', history|length, 'text-acc'),
+    ('Total Cost Spent', 'Rs.'+"{:,}".format(total_cost), 'text-dng'),
+    ('Avg Health Improvement', avg_imp|string+'%', 'text-acc2'),
+    ('Last Maintenance', history[0].date[:10] if history else 'N/A', 'text-warn'),
+  ] %}
+  <div class="col-6 col-md-3"><div class="pm-met">
+    <div class="val {{ cls }}" style="font-size:1.2rem">{{ val }}</div>
+    <div class="lbl">{{ lbl }}</div>
+  </div></div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<!-- History Table -->
+<div class="pm-card mb-3">
+  <div class="pm-card-head"><i class="bi bi-table"></i> Maintenance Records</div>
+  <div class="table-responsive">
+    <table class="pm-tbl">
+      <thead><tr>
+        <th>ID</th><th>Machine</th><th>Type</th><th>Description</th>
+        <th>Technician</th><th>Cost</th><th>Health Before</th>
+        <th>Health After</th><th>Improvement</th><th>Date</th>
+      </tr></thead>
+      <tbody>
+        {% for r in history %}
+        <tr>
+          <td class="font-mono text-acc">{{ r.id }}</td>
+          <td><span class="pm-role-badge" style="font-size:.65rem">{{ r.machine_id }}</span><br>
+          <small class="text-mut">{{ r.machine_name }}</small></td>
+          <td><span class="st {{ 'st-critical' if r.type=='Corrective' else 'st-healthy' }}" style="font-size:.62rem">{{ r.type }}</span></td>
+          <td style="max-width:200px;font-size:.82rem">{{ r.description }}</td>
+          <td class="text-mut">{{ r.technician }}</td>
+          <td class="font-mono text-dng">Rs.{{ "{:,}".format(r.cost) }}</td>
+          <td class="font-mono text-warn">{{ r.health_before }}%</td>
+          <td class="font-mono text-acc2">{{ r.health_after }}%</td>
+          <td class="font-mono {{ 'text-acc2' if r.improvement > 0 else 'text-dng' }}">
+            {{ '+' if r.improvement > 0 else '' }}{{ r.improvement }}%
+          </td>
+          <td class="font-mono text-mut" style="font-size:.75rem">{{ r.date }}</td>
+        </tr>
+        {% endfor %}
+        {% if not history %}
+        <tr><td colspan="10" class="text-center text-mut py-4">No maintenance records found</td></tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Add Record Form -->
+<div class="pm-card">
+  <div class="pm-card-head"><i class="bi bi-plus-circle"></i> Add Maintenance Record</div>
+  <form method="POST" action="/maintenance-history/add">
+    <div class="row g-3">
+      <div class="col-md-3">
+        <label class="text-mut small d-block mb-1">Machine</label>
+        <select name="machine_id" class="form-select pm-sel" required>
+          {% for mid,info in machines.items() %}
+          <option value="{{ mid }}" {% if filter_mid==mid %}selected{% endif %}>{{ mid }} — {{ info.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-2">
+        <label class="text-mut small d-block mb-1">Type</label>
+        <select name="type" class="form-select pm-sel">
+          <option value="Preventive">Preventive</option>
+          <option value="Corrective">Corrective</option>
+          <option value="Inspection">Inspection</option>
+          <option value="Emergency">Emergency</option>
+        </select>
+      </div>
+      <div class="col-md-3">
+        <label class="text-mut small d-block mb-1">Description</label>
+        <input type="text" name="description" class="form-control pm-inp" required placeholder="What was done?">
+      </div>
+      <div class="col-md-1">
+        <label class="text-mut small d-block mb-1">Cost (Rs.)</label>
+        <input type="number" name="cost" class="form-control pm-inp" value="5000" required>
+      </div>
+      <div class="col-md-1">
+        <label class="text-mut small d-block mb-1">Health Before</label>
+        <input type="number" name="health_before" class="form-control pm-inp" value="45" min="0" max="100">
+      </div>
+      <div class="col-md-1">
+        <label class="text-mut small d-block mb-1">Health After</label>
+        <input type="number" name="health_after" class="form-control pm-inp" value="85" min="0" max="100">
+      </div>
+      <div class="col-md-1 d-flex align-items-end">
+        <button type="submit" class="pm-btn w-100"><i class="bi bi-plus"></i> Add</button>
+      </div>
+    </div>
+  </form>
+</div>
+{% endblock %}

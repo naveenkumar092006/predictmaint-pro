@@ -1,0 +1,405 @@
+{% extends 'base.html' %}
+{% block title %}Analytics — PredictMaint Pro{% endblock %}
+
+{% block extra_css %}
+<style>
+.plotly-chart { border-radius: 12px; overflow: hidden; }
+.stat-card {
+    background: var(--bgcard);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 1.25rem;
+    position: relative;
+    overflow: hidden;
+    transition: transform .2s, box-shadow .2s;
+}
+.stat-card:hover { transform: translateY(-3px); box-shadow: 0 8px 32px rgba(0,212,255,.12); }
+.stat-card::before {
+    content: '';
+    position: absolute; top: 0; left: 0; right: 0; height: 3px;
+    background: var(--accent-grad, linear-gradient(90deg,#00d4ff,#00ff88));
+}
+.stat-val {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 2.2rem; font-weight: 700; line-height: 1;
+}
+.stat-lbl { font-size: .72rem; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); margin-top: 6px; }
+.stat-sub { font-size: .78rem; color: var(--muted); margin-top: 4px; }
+.trend-up   { color: #00ff88; }
+.trend-down { color: #ff3355; }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Page Header -->
+<div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-2">
+  <div>
+    <div class="pm-title"><i class="bi bi-bar-chart-line text-acc"></i> Analytics Dashboard</div>
+    <small class="text-mut font-mono">Powered by Plotly Interactive Charts • Last 6 Months</small>
+  </div>
+  <div class="d-flex gap-2">
+    <span class="st st-healthy">● Live Data</span>
+    <a href="{{ url_for('download_excel') }}" class="pm-btn pm-btn-sm">
+      <i class="bi bi-file-earmark-excel me-1"></i>Export Excel
+    </a>
+  </div>
+</div>
+
+<!-- KPI Cards -->
+<div class="row g-3 mb-4">
+  {% set tc = analytics.maintenance_costs | sum %}
+  {% set tf = analytics.failure_counts    | sum %}
+  {% set td = analytics.downtime_hours    | sum %}
+  {% set critical_count = predictions.values() | selectattr('status','eq','Critical') | list | length %}
+
+  <div class="col-6 col-xl-3">
+    <div class="stat-card" style="--accent-grad: linear-gradient(90deg,#ff3355,#ff6688)">
+      <div class="stat-val text-dng">{{ tf }}</div>
+      <div class="stat-lbl">Total Failures</div>
+      <div class="stat-sub">Last 6 months <span class="trend-down">▲ 12%</span></div>
+    </div>
+  </div>
+  <div class="col-6 col-xl-3">
+    <div class="stat-card" style="--accent-grad: linear-gradient(90deg,#00d4ff,#0088cc)">
+      <div class="stat-val text-acc">Rs.{{ "{:,.0f}".format(tc/1000) }}K</div>
+      <div class="stat-lbl">Total Maint. Cost</div>
+      <div class="stat-sub">Avg Rs.{{ "{:,.0f}".format(tc/6/1000) }}K/month</div>
+    </div>
+  </div>
+  <div class="col-6 col-xl-3">
+    <div class="stat-card" style="--accent-grad: linear-gradient(90deg,#ffaa00,#ff6600)">
+      <div class="stat-val text-warn">{{ td }}h</div>
+      <div class="stat-lbl">Total Downtime</div>
+      <div class="stat-sub">Avg {{ (td/6)|round(1) }}h/month <span class="trend-up">▼ 8%</span></div>
+    </div>
+  </div>
+  <div class="col-6 col-xl-3">
+    <div class="stat-card" style="--accent-grad: linear-gradient(90deg,#00ff88,#00cc66)">
+      <div class="stat-val {{ 'text-dng' if critical_count > 0 else 'text-acc2' }}">{{ critical_count }}</div>
+      <div class="stat-lbl">Critical Now</div>
+      <div class="stat-sub">{{ predictions | length }} total machines</div>
+    </div>
+  </div>
+</div>
+
+<!-- Row 1: Failure + Type -->
+<div class="row g-3 mb-3">
+  <div class="col-md-7">
+    <div class="pm-card">
+      <div class="pm-card-head"><i class="bi bi-bar-chart-fill"></i> Monthly Failure Count</div>
+      <div id="chartFailures" style="height:280px"></div>
+    </div>
+  </div>
+  <div class="col-md-5">
+    <div class="pm-card">
+      <div class="pm-card-head"><i class="bi bi-pie-chart-fill"></i> Failure Type Distribution</div>
+      <div id="chartTypes" style="height:280px"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Row 2: Cost + Downtime -->
+<div class="row g-3 mb-3">
+  <div class="col-md-6">
+    <div class="pm-card">
+      <div class="pm-card-head"><i class="bi bi-graph-up-arrow"></i> Maintenance Cost Trend (Rs.)</div>
+      <div id="chartCost" style="height:260px"></div>
+    </div>
+  </div>
+  <div class="col-md-6">
+    <div class="pm-card">
+      <div class="pm-card-head"><i class="bi bi-clock-history"></i> Downtime Hours Trend</div>
+      <div id="chartDowntime" style="height:260px"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Row 3: Health Heatmap + Risk Scatter -->
+<div class="row g-3 mb-3">
+  <div class="col-md-6">
+    <div class="pm-card">
+      <div class="pm-card-head"><i class="bi bi-grid-3x3"></i> Machine Health Heatmap</div>
+      <div id="chartHeatmap" style="height:280px"></div>
+    </div>
+  </div>
+  <div class="col-md-6">
+    <div class="pm-card">
+      <div class="pm-card-head"><i class="bi bi-scatter-chart"></i> Risk vs Health Scatter</div>
+      <div id="chartScatter" style="height:280px"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Machine Overview Table -->
+<div class="pm-card mb-3">
+  <div class="pm-card-head"><i class="bi bi-table"></i> Current Machine Health Overview</div>
+  <div class="table-responsive">
+    <table class="pm-tbl">
+      <thead><tr>
+        <th>Machine</th><th>Name</th><th>Health</th><th>Risk</th>
+        <th>RUL</th><th>Failure Type</th><th>Status</th><th>Est. Cost</th>
+      </tr></thead>
+      <tbody>
+        {% for mid,pred in predictions.items() %}
+        <tr>
+          <td class="font-mono text-acc fw-bold">{{ mid }}</td>
+          <td>{{ pred.machine_info.name }}</td>
+          <td>
+            <div class="d-flex align-items-center gap-2">
+              <div class="pm-prog" style="width:60px">
+                <div class="pm-bar {{ 'bar-ok' if pred.health_score>=60 else 'bar-warn' if pred.health_score>=40 else 'bar-crit' }}"
+                     style="width:{{ pred.health_score }}%"></div>
+              </div>
+              <span class="font-mono" style="font-size:.8rem">{{ pred.health_score }}%</span>
+            </div>
+          </td>
+          <td class="font-mono {{ 'text-dng' if pred.failure_probability>60 else 'text-warn' if pred.failure_probability>30 else 'text-acc2' }}">
+            {{ pred.failure_probability }}%
+          </td>
+          <td class="font-mono {{ 'text-dng' if pred.rul_days<10 else 'text-warn' if pred.rul_days<20 else 'text-acc2' }}">{{ pred.rul_days }}d</td>
+          <td class="text-warn">{{ pred.failure_type }}</td>
+          <td><span class="st st-{{ pred.status|lower }}">● {{ pred.status }}</span></td>
+          <td class="font-mono text-acc">Rs.{{ "{:,}".format(pred.cost_estimate.total_estimated) }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ANOMALY HEATMAP CALENDAR + MULTI-FACTORY -->
+<div class="row g-3 mb-4">
+  <div class="col-md-8">
+    <div class="pm-card h-100">
+      <div class="pm-card-head"><i class="bi bi-calendar3 text-warn"></i> Anomaly Heatmap — Last 30 Days</div>
+      <div id="chartAnomalyHeatmap" style="height:220px"></div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="pm-card h-100">
+      <div class="pm-card-head"><i class="bi bi-building text-acc"></i> Factory Health Overview</div>
+      <div id="chartFactoryHealth" style="height:220px"></div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/plotly.js-dist@2.27.0/plotly.min.js"></script>
+<script>
+const months = {{ analytics.months | tojson }};
+const fc     = {{ analytics.failure_counts | tojson }};
+const mc     = {{ analytics.maintenance_costs | tojson }};
+const dh     = {{ analytics.downtime_hours | tojson }};
+const ft     = {{ analytics.failure_type_distribution | tojson }};
+const preds  = {{ predictions | tojson }};
+
+// ── THEME ────────────────────────────────────────────────────────────────────
+const dark = {
+  paper_bgcolor: 'transparent',
+  plot_bgcolor:  'rgba(13,24,40,0.5)',
+  font: { color: '#aabbcc', family: "'Exo 2', sans-serif", size: 12 },
+  margin: { t: 20, r: 20, b: 40, l: 50 },
+  xaxis: { gridcolor: 'rgba(0,212,255,0.08)', zerolinecolor: 'rgba(0,212,255,0.15)' },
+  yaxis: { gridcolor: 'rgba(0,212,255,0.08)', zerolinecolor: 'rgba(0,212,255,0.15)' },
+};
+const cfg = { displayModeBar: false, responsive: true };
+
+// ── 1. FAILURE BAR CHART ─────────────────────────────────────────────────────
+Plotly.newPlot('chartFailures', [{
+  x: months, y: fc, type: 'bar',
+  marker: {
+    color: fc.map(v => v > 5 ? 'rgba(255,51,85,0.85)' : 'rgba(255,170,0,0.75)'),
+    line: { color: 'rgba(255,255,255,0.1)', width: 1 },
+  },
+  hovertemplate: '<b>%{x}</b><br>Failures: %{y}<extra></extra>',
+  text: fc, textposition: 'outside',
+  textfont: { color: '#aabbcc', size: 11 },
+}], {
+  ...dark,
+  bargap: 0.35,
+  yaxis: { ...dark.yaxis, title: { text: 'Failure Count', font: { color: '#6688aa' } } },
+}, cfg);
+
+// ── 2. PIE CHART ──────────────────────────────────────────────────────────────
+Plotly.newPlot('chartTypes', [{
+  labels: Object.keys(ft),
+  values: Object.values(ft),
+  type: 'pie',
+  hole: 0.5,
+  marker: {
+    colors: ['rgba(0,212,255,0.85)','rgba(255,170,0,0.85)',
+             'rgba(200,100,255,0.85)','rgba(0,255,136,0.85)'],
+    line: { color: 'rgba(6,10,16,0.8)', width: 3 }
+  },
+  textfont: { color: '#ffffff', size: 12 },
+  hovertemplate: '<b>%{label}</b><br>Count: %{value}<br>%{percent}<extra></extra>',
+}], {
+  ...dark,
+  margin: { t: 20, r: 20, b: 20, l: 20 },
+  legend: { font: { color: '#aabbcc', size: 11 }, bgcolor: 'transparent' },
+  annotations: [{
+    text: 'Failure<br>Types', x: 0.5, y: 0.5, xref: 'paper', yref: 'paper',
+    showarrow: false, font: { size: 12, color: '#6688aa' }
+  }]
+}, cfg);
+
+// ── 3. COST LINE CHART ────────────────────────────────────────────────────────
+Plotly.newPlot('chartCost', [{
+  x: months, y: mc, type: 'scatter', mode: 'lines+markers',
+  line: { color: '#00ff88', width: 3, shape: 'spline' },
+  marker: { color: '#00ff88', size: 8, line: { color: '#0a1220', width: 2 } },
+  fill: 'tozeroy',
+  fillcolor: 'rgba(0,255,136,0.08)',
+  hovertemplate: '<b>%{x}</b><br>Cost: Rs.%{y:,.0f}<extra></extra>',
+}], {
+  ...dark,
+  yaxis: { ...dark.yaxis,
+    title: { text: 'Cost (Rs.)', font: { color: '#6688aa' } },
+    tickformat: ',.0f'
+  },
+}, cfg);
+
+// ── 4. DOWNTIME AREA CHART ────────────────────────────────────────────────────
+Plotly.newPlot('chartDowntime', [{
+  x: months, y: dh, type: 'scatter', mode: 'lines+markers',
+  line: { color: '#ffaa00', width: 3, shape: 'spline' },
+  marker: { color: '#ffaa00', size: 8, line: { color: '#0a1220', width: 2 } },
+  fill: 'tozeroy',
+  fillcolor: 'rgba(255,170,0,0.08)',
+  hovertemplate: '<b>%{x}</b><br>Downtime: %{y}h<extra></extra>',
+}], {
+  ...dark,
+  yaxis: { ...dark.yaxis,
+    title: { text: 'Hours', font: { color: '#6688aa' } }
+  },
+}, cfg);
+
+// ── 5. HEALTH HEATMAP ─────────────────────────────────────────────────────────
+const mids    = Object.keys(preds);
+const metrics = ['Health %','Risk %','Temp °C','Vibration','Pressure','RUL Days'];
+const zValues = [
+  mids.map(m => preds[m].health_score),
+  mids.map(m => preds[m].failure_probability),
+  mids.map(m => preds[m].readings.temperature),
+  mids.map(m => preds[m].readings.vibration * 10),
+  mids.map(m => preds[m].readings.pressure * 10),
+  mids.map(m => Math.min(100, preds[m].rul_days * 2)),
+];
+
+Plotly.newPlot('chartHeatmap', [{
+  z: zValues, x: mids, y: metrics,
+  type: 'heatmap',
+  colorscale: [
+    [0, 'rgba(255,51,85,0.9)'],
+    [0.5, 'rgba(255,170,0,0.8)'],
+    [1, 'rgba(0,255,136,0.9)'],
+  ],
+  showscale: true,
+  hovertemplate: '%{y}<br>%{x}: %{z:.1f}<extra></extra>',
+  colorbar: { tickfont: { color: '#6688aa' }, bgcolor: 'transparent' }
+}], {
+  ...dark,
+  margin: { t: 20, r: 60, b: 60, l: 100 },
+  xaxis: { ...dark.xaxis, tickfont: { color: '#aabbcc', size: 11 } },
+  yaxis: { ...dark.yaxis, tickfont: { color: '#aabbcc', size: 11 } },
+}, cfg);
+
+// ── 6. RISK vs HEALTH SCATTER ─────────────────────────────────────────────────
+const colors = mids.map(m =>
+  preds[m].status==='Critical' ? '#ff3355' :
+  preds[m].status==='Warning'  ? '#ffaa00' : '#00ff88'
+);
+
+Plotly.newPlot('chartScatter', [{
+  x: mids.map(m => preds[m].failure_probability),
+  y: mids.map(m => preds[m].health_score),
+  mode: 'markers+text',
+  type: 'scatter',
+  text: mids,
+  textposition: 'top center',
+  textfont: { color: '#aabbcc', size: 10 },
+  marker: {
+    color: colors, size: 16,
+    line: { color: 'rgba(255,255,255,0.3)', width: 2 },
+    symbol: 'circle',
+  },
+  hovertemplate: '<b>%{text}</b><br>Risk: %{x}%<br>Health: %{y}%<extra></extra>',
+}], {
+  ...dark,
+  xaxis: { ...dark.xaxis,
+    title: { text: 'Failure Risk (%)', font: { color: '#6688aa' } },
+    range: [-5, 110]
+  },
+  yaxis: { ...dark.yaxis,
+    title: { text: 'Health Score (%)', font: { color: '#6688aa' } },
+    range: [-5, 110]
+  },
+  shapes: [
+    { type:'line', x0:60,x1:60,y0:0,y1:100, line:{color:'rgba(255,51,85,0.4)',dash:'dash',width:1} },
+    { type:'line', x0:0,x1:110,y0:60,y1:60, line:{color:'rgba(0,255,136,0.4)',dash:'dash',width:1} },
+  ],
+  annotations: [
+    { x:85, y:85, text:'Safe Zone', showarrow:false, font:{color:'rgba(0,255,136,0.5)',size:10} },
+    { x:85, y:15, text:'Critical Zone', showarrow:false, font:{color:'rgba(255,51,85,0.5)',size:10} },
+  ]
+}, cfg);
+</script>
+
+// ── ANOMALY HEATMAP — last 30 days ──────────────────────────────────────────
+(function() {
+  const machines = ['MCH-101','MCH-102','MCH-103','MCH-104','MCH-105','MCH-106'];
+  const days = 30;
+  // Simulate anomaly frequency — higher for MCH-104, MCH-105 (older machines)
+  const weights = {'MCH-101':0.1,'MCH-102':0.18,'MCH-103':0.08,
+                   'MCH-104':0.35,'MCH-105':0.42,'MCH-106':0.05};
+  const z = machines.map(m => Array.from({length:days}, () =>
+    Math.random() < weights[m] ? Math.round(Math.random()*3+1) : 0));
+
+  const xLabels = Array.from({length:days}, (_,i) => {
+    const d = new Date(); d.setDate(d.getDate()-days+i+1);
+    return d.toLocaleDateString('en-IN',{month:'short',day:'numeric'});
+  });
+
+  const layout = {
+    paper_bgcolor:'rgba(0,0,0,0)', plot_bgcolor:'rgba(0,0,0,0)',
+    font:{color:'#8899aa', size:10},
+    margin:{t:10,b:60,l:80,r:10},
+    xaxis:{tickangle:-45, tickfont:{size:9}, showgrid:false},
+    yaxis:{showgrid:false},
+    coloraxis:{colorscale:[[0,'#0d1525'],[0.3,'#1a4060'],[0.6,'#ff9800'],[1,'#f44336']],
+               showscale:true,
+               colorbar:{title:{text:'Anomalies',font:{color:'#8899aa',size:10}},
+                        tickfont:{color:'#8899aa',size:9},thickness:10,len:0.8}}
+  };
+  Plotly.newPlot('chartAnomalyHeatmap', [{
+    type:'heatmap', z:z, x:xLabels, y:machines,
+    coloraxis:'coloraxis', hoverongaps:false,
+    hovertemplate:'<b>%{y}</b><br>%{x}<br>Anomalies: %{z}<extra></extra>'
+  }], layout, {responsive:true, displayModeBar:false});
+})();
+
+// ── FACTORY HEALTH RADAR ───────────────────────────────────────────────────
+(function() {
+  const preds = {{ predictions | tojson }};
+  const machines = Object.keys(preds);
+  const health = machines.map(m => preds[m].health_score || 0);
+  Plotly.newPlot('chartFactoryHealth', [{
+    type:'scatterpolar', r:[...health, health[0]], theta:[...machines, machines[0]],
+    fill:'toself', fillcolor:'rgba(0,212,255,0.1)',
+    line:{color:'#00d4ff', width:2},
+    marker:{color:'#00d4ff', size:6},
+    hovertemplate:'<b>%{theta}</b><br>Health: %{r:.1f}%<extra></extra>'
+  }], {
+    paper_bgcolor:'rgba(0,0,0,0)', plot_bgcolor:'rgba(0,0,0,0)',
+    font:{color:'#8899aa', size:10},
+    polar:{bgcolor:'rgba(0,0,0,0)',
+           radialaxis:{visible:true,range:[0,100],color:'#8899aa',tickfont:{size:9},gridcolor:'rgba(136,153,170,0.2)'},
+           angularaxis:{color:'#8899aa',tickfont:{size:9},gridcolor:'rgba(136,153,170,0.2)'}},
+    margin:{t:20,b:20,l:40,r:40},
+    showlegend:false
+  }, {responsive:true, displayModeBar:false});
+})();
+
+{% endblock %}

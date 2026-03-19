@@ -1,0 +1,130 @@
+{% extends 'base.html' %}
+{% block title %}Search — PredictMaint Pro{% endblock %}
+{% block content %}
+<div class="pm-title mb-3"><i class="bi bi-search text-acc"></i> Machine Search</div>
+
+<div class="pm-card mb-4">
+  <form method="GET" action="/search" class="d-flex gap-3 align-items-center flex-wrap">
+    <div class="d-flex align-items-center gap-2">
+      <label class="text-mut" style="font-size:.8rem;white-space:nowrap">Machine ID:</label>
+      <input type="text" name="machine_id" class="form-control pm-inp" style="width:160px"
+             placeholder="e.g. MCH-102" value="{{ query }}" autofocus>
+    </div>
+    <select name="machine_id" class="form-select pm-sel" style="width:240px" onchange="this.form.submit()">
+      <option value="">— Select from list —</option>
+      {% for mid,info in machines.items() %}
+      <option value="{{ mid }}" {% if mid==query %}selected{% endif %}>{{ mid }} — {{ info.name }}</option>
+      {% endfor %}
+    </select>
+    <button type="submit" class="pm-btn"><i class="bi bi-search me-1"></i>Search</button>
+  </form>
+</div>
+
+{% if result %}{% set r=result %}
+<div class="pm-card mb-3 {% if r.status=='Critical' %}pm-alert-crit{% endif %}">
+  <div class="d-flex align-items-center justify-content-between flex-wrap gap-3">
+    <div>
+      <div class="d-flex align-items-center gap-3 mb-1">
+        <span class="font-mono text-acc" style="font-size:1.2rem;font-weight:700">{{ r.machine_id }}</span>
+        <span class="st st-{{ r.status|lower }}">● {{ r.status }}</span>
+        {% if r.is_anomaly %}<span class="st" style="background:rgba(255,170,0,.1);color:#ffaa00;border:1px solid rgba(255,170,0,.3)">⚠ ANOMALY</span>{% endif %}
+      </div>
+      <div class="text-mut small">{{ r.machine_info.name }} | {{ r.machine_info.location }} | Op: {{ r.machine_info.operator }}</div>
+      <div class="text-mut small">Installed: {{ r.machine_info.installation_date }} | Last Maint: {{ r.machine_info.last_maintenance }}</div>
+    </div>
+    <a href="/report/pdf/{{ r.machine_id }}" class="pm-btn"><i class="bi bi-file-earmark-pdf-fill me-1"></i>Download PDF</a>
+  </div>
+</div>
+
+<div class="row g-3 mb-3">
+  {% for lbl,val,cls in [
+    ('Health Score %',r.health_score,'text-acc2' if r.health_score>60 else 'text-warn' if r.health_score>30 else 'text-dng'),
+    ('Failure Risk %',r.failure_probability,'text-dng' if r.failure_probability>60 else 'text-warn' if r.failure_probability>30 else 'text-acc2'),
+    ('RUL Days',r.rul_days,'text-acc2' if r.rul_days>20 else 'text-warn' if r.rul_days>10 else 'text-dng'),
+    ('Anomaly Score',r.anomaly_score,'text-warn'),
+  ] %}
+  <div class="col-6 col-md-3"><div class="pm-met">
+    <div class="val {{ cls }} font-mono">{{ val }}</div>
+    <div class="lbl">{{ lbl }}</div>
+  </div></div>
+  {% endfor %}
+</div>
+
+<div class="row g-3 mb-3">
+  <div class="col-md-8"><div class="pm-card">
+    <div class="pm-card-head"><i class="bi bi-activity"></i> Sensor History</div>
+    <canvas id="cHist" height="200"></canvas>
+  </div></div>
+  <div class="col-md-4"><div class="pm-card h-100">
+    <div class="pm-card-head"><i class="bi bi-bug"></i> Failure Analysis</div>
+    <div class="mb-3">
+      <small class="text-mut d-block mb-1" style="font-size:.68rem;text-transform:uppercase">Failure Type</small>
+      <span class="text-warn fw-bold">{{ r.failure_type }}</span>
+    </div>
+    <div class="mb-3">
+      <small class="text-mut d-block mb-1" style="font-size:.68rem;text-transform:uppercase">Root Cause</small>
+      {{ r.root_cause }}
+    </div>
+    <div>
+      <small class="text-mut d-block mb-1" style="font-size:.68rem;text-transform:uppercase">Solutions</small>
+      <ol class="ps-3" style="font-size:.83rem;color:#aabbcc">
+        {% for s in r.solutions %}<li>{{ s }}</li>{% endfor %}
+      </ol>
+    </div>
+    {% if r.suggested_maintenance_date %}
+    <div class="mt-2 p-2 text-center" style="background:rgba(255,170,0,.08);border:1px solid rgba(255,170,0,.2);border-radius:8px">
+      <small class="text-warn">Suggested Maintenance</small><br>
+      <strong class="font-mono">{{ r.suggested_maintenance_date }}</strong>
+    </div>
+    {% endif %}
+  </div></div>
+</div>
+
+<div class="pm-card mb-3">
+  <div class="pm-card-head"><i class="bi bi-currency-rupee"></i> Maintenance Cost Estimate</div>
+  {% set c=r.cost_estimate %}
+  <div class="row g-2 text-center">
+    {% for lbl,val,cls in [
+      ('Spare Parts',c.spare_parts_cost,'text-acc'),
+      ('Labor Cost',c.labor_cost,'text-acc'),
+      ('Total Estimated',c.total_estimated,'text-acc fw-bold'),
+      ('Preventive',c.preventive_cost,'text-mut'),
+      ('Breakdown Repair',c.breakdown_repair,'text-dng'),
+      ('Savings',c.estimated_savings,'text-acc2 fw-bold'),
+    ] %}
+    <div class="col-md-2 col-4"><div class="pm-met">
+      <div class="val {{ cls }} font-mono" style="font-size:1rem">₹{{ "{:,}".format(val) }}</div>
+      <div class="lbl">{{ lbl }}</div>
+    </div></div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+{% if result and history %}
+<script>
+const h={{ history|tojson }};
+new Chart(document.getElementById('cHist').getContext('2d'),{
+  type:'line',
+  data:{
+    labels:h.map(d=>d.timestamp.split(' ')[1]),
+    datasets:[
+      {...pmDS('Temp °C','rgb(0,212,255)',h.map(d=>d.temperature)),yAxisID:'y'},
+      {...pmDS('Vibration','rgb(255,170,0)',h.map(d=>d.vibration)),yAxisID:'y1'},
+      {...pmDS('Pressure','rgb(200,100,255)',h.map(d=>d.pressure)),yAxisID:'y1'},
+    ]
+  },
+  options:{responsive:true,
+    plugins:{legend:{labels:{color:'#6688aa'}}},
+    scales:{
+      x:{ticks:{maxTicksLimit:8,font:{size:10}}},
+      y:{position:'left',...AX},
+      y1:{position:'right',grid:{display:false}}
+    }
+  }
+});
+</script>
+{% endif %}
+{% endblock %}

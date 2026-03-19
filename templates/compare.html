@@ -1,0 +1,234 @@
+{% extends 'base.html' %}
+{% block title %}Compare Machines — PredictMaint Pro{% endblock %}
+{% block content %}
+<div class="pm-title mb-3"><i class="bi bi-arrow-left-right text-acc"></i> Machine Comparison Tool</div>
+
+<!-- Selector -->
+<div class="pm-card mb-3">
+  <div class="pm-card-head"><i class="bi bi-sliders"></i> Select Two Machines to Compare</div>
+  <form method="GET" class="d-flex align-items-center gap-3 flex-wrap">
+    <div class="d-flex align-items-center gap-2">
+      <label class="text-mut small">Machine 1:</label>
+      <select name="m1" class="form-select pm-sel" style="width:220px">
+        {% for mid,info in machines.items() %}
+        <option value="{{ mid }}" {% if m1==mid %}selected{% endif %}>{{ mid }} — {{ info.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="d-flex align-items-center gap-2">
+      <label class="text-mut small">Machine 2:</label>
+      <select name="m2" class="form-select pm-sel" style="width:220px">
+        {% for mid,info in machines.items() %}
+        <option value="{{ mid }}" {% if m2==mid %}selected{% endif %}>{{ mid }} — {{ info.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <button type="submit" class="pm-btn"><i class="bi bi-arrow-left-right me-1"></i>Compare</button>
+  </form>
+</div>
+
+{% if comparison %}
+{% set c = comparison %}
+
+<!-- Winner Banner -->
+<div class="pm-card mb-3" style="background:rgba(0,255,136,.05);border:1px solid rgba(0,255,136,.2)">
+  <div class="d-flex align-items-center justify-content-between flex-wrap gap-3">
+    <div>
+      <div class="pm-card-head"><i class="bi bi-trophy text-acc2"></i> Comparison Result</div>
+      {% if c.overall_winner == 'TIE' %}
+      <div style="font-size:1.3rem;font-weight:700;color:#ffaa00;font-family:'Rajdhani',sans-serif">
+        ⚖️ TIE — Both machines in similar condition
+      </div>
+      {% else %}
+      <div style="font-size:1.3rem;font-weight:700;color:#00ff88;font-family:'Rajdhani',sans-serif">
+        🏆 {{ c.overall_winner }} is in BETTER condition
+      </div>
+      {% endif %}
+      <div class="mt-1">
+        <span class="text-acc">{{ c.machine1 }}: {{ c.wins1 }} wins</span>
+        &nbsp;vs&nbsp;
+        <span class="text-acc2">{{ c.machine2 }}: {{ c.wins2 }} wins</span>
+      </div>
+    </div>
+    <div class="d-flex gap-2">
+      <a href="/report/pdf/{{ c.machine1 }}" class="pm-btn pm-btn-sm">
+        <i class="bi bi-file-pdf me-1"></i>{{ c.machine1 }} PDF
+      </a>
+      <a href="/report/pdf/{{ c.machine2 }}" class="pm-btn pm-btn-sm">
+        <i class="bi bi-file-pdf me-1"></i>{{ c.machine2 }} PDF
+      </a>
+    </div>
+  </div>
+</div>
+
+<!-- Side by Side Status -->
+<div class="row g-3 mb-3">
+  {% for mid,pred in [(c.machine1,c.pred1),(c.machine2,c.pred2)] %}
+  <div class="col-md-6">
+    <div class="pm-card h-100" style="border-color:{{ 'rgba(255,51,85,.4)' if pred.status=='Critical' else 'rgba(255,170,0,.3)' if pred.status=='Warning' else 'rgba(0,255,136,.2)' }}">
+      <div class="d-flex align-items-center justify-content-between mb-3">
+        <div>
+          <div class="font-mono text-acc fw-bold" style="font-size:1.1rem">{{ mid }}</div>
+          <div class="text-mut small">{{ pred.machine_info.name }}</div>
+          <div class="text-mut small">Operator: {{ pred.machine_info.operator }}</div>
+        </div>
+        <span class="st st-{{ pred.status|lower }}">● {{ pred.status }}</span>
+      </div>
+      <div class="row g-2">
+        <div class="col-6"><div class="pm-met" style="padding:.6rem">
+          <div class="val {{ 'text-acc2' if pred.health_score>=60 else 'text-warn' if pred.health_score>=40 else 'text-dng' }}" style="font-size:1.1rem">{{ pred.health_score }}%</div>
+          <div class="lbl">Health Score</div>
+        </div></div>
+        <div class="col-6"><div class="pm-met" style="padding:.6rem">
+          <div class="val {{ 'text-dng' if pred.failure_probability>60 else 'text-warn' if pred.failure_probability>30 else 'text-acc2' }}" style="font-size:1.1rem">{{ pred.failure_probability }}%</div>
+          <div class="lbl">Failure Risk</div>
+        </div></div>
+        <div class="col-6"><div class="pm-met" style="padding:.6rem">
+          <div class="val {{ 'text-acc2' if pred.rul_days>20 else 'text-warn' if pred.rul_days>10 else 'text-dng' }}" style="font-size:1.1rem">{{ pred.rul_days }}</div>
+          <div class="lbl">RUL Days</div>
+        </div></div>
+        <div class="col-6"><div class="pm-met" style="padding:.6rem">
+          <div class="val text-warn" style="font-size:.85rem;word-break:break-word">{{ pred.failure_type }}</div>
+          <div class="lbl">Failure Type</div>
+        </div></div>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<!-- Comparison Table -->
+<div class="pm-card mb-3">
+  <div class="pm-card-head"><i class="bi bi-table"></i> Detailed Metric Comparison</div>
+  <div class="table-responsive">
+    <table class="pm-tbl">
+      <thead>
+        <tr>
+          <th>Metric</th>
+          <th class="text-acc">{{ c.machine1 }}</th>
+          <th class="text-acc2">{{ c.machine2 }}</th>
+          <th>Winner</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in c.comparisons %}
+        <tr>
+          <td class="fw-bold">{{ row.metric }}</td>
+          <td class="font-mono">{% if row.unit == 'Rs.' %}Rs.{{ "{:,}".format(row.val1|int) if row.val1 is number else row.val1 }}{% else %}{{ row.val1 }}{% if row.unit %} {{ row.unit }}{% endif %}{% endif %}</td>
+          <td class="font-mono">{% if row.unit == 'Rs.' %}Rs.{{ "{:,}".format(row.val2|int) if row.val2 is number else row.val2 }}{% else %}{{ row.val2 }}{% if row.unit %} {{ row.unit }}{% endif %}{% endif %}</td>
+          <td>
+            {% if row.winner == 'TIE' %}
+            <span class="st st-warning" style="font-size:.65rem">= TIE</span>
+            {% else %}
+            <span class="st st-healthy" style="font-size:.65rem">🏆 {{ row.winner }}</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Radar Chart + Recommendations -->
+<div class="row g-3 mb-3">
+  <div class="col-md-6">
+    <div class="pm-card h-100">
+      <div class="pm-card-head"><i class="bi bi-diagram-3"></i> Radar Comparison</div>
+      <canvas id="radarChart" height="260"></canvas>
+    </div>
+  </div>
+  <div class="col-md-6">
+    <div class="pm-card h-100">
+      <div class="pm-card-head"><i class="bi bi-lightbulb"></i> AI Recommendations</div>
+      {% for rec in c.recommendation %}
+      <div class="mb-2 p-2" style="background:var(--bgcard2);border-radius:8px;font-size:.85rem;border-left:3px solid var(--accent)">
+        {{ rec }}
+      </div>
+      {% endfor %}
+      <div class="mt-3">
+        <div class="pm-card-head"><i class="bi bi-currency-rupee"></i> Cost Comparison</div>
+        <div class="d-flex justify-content-between mb-1" style="font-size:.85rem">
+          <span class="text-mut">{{ c.machine1 }} repair cost</span>
+          <span class="font-mono text-acc">Rs.{{ "{:,}".format(c.pred1.cost_estimate.total_estimated) }}</span>
+        </div>
+        <div class="d-flex justify-content-between mb-1" style="font-size:.85rem">
+          <span class="text-mut">{{ c.machine2 }} repair cost</span>
+          <span class="font-mono text-acc2">Rs.{{ "{:,}".format(c.pred2.cost_estimate.total_estimated) }}</span>
+        </div>
+        <div class="d-flex justify-content-between pt-1" style="border-top:1px solid var(--border2);font-size:.85rem">
+          <span class="fw-bold">Combined</span>
+          <span class="font-mono text-dng fw-bold">Rs.{{ "{:,}".format(c.pred1.cost_estimate.total_estimated + c.pred2.cost_estimate.total_estimated) }}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% else %}
+<div class="pm-card text-center py-5">
+  <i class="bi bi-arrow-left-right" style="font-size:3rem;color:var(--muted)"></i>
+  <div class="text-mut mt-2">Select two different machines above and click Compare</div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+{% if comparison %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+const m1 = {{ comparison.machine1 | tojson }};
+const m2 = {{ comparison.machine2 | tojson }};
+const p1 = {{ comparison.pred1 | tojson }};
+const p2 = {{ comparison.pred2 | tojson }};
+
+new Chart(document.getElementById('radarChart').getContext('2d'), {
+  type:'radar',
+  data:{
+    labels:['Health Score','Low Risk','RUL (scaled)','Low Temp','Low Vibration','Low Pressure'],
+    datasets:[
+      {
+        label:m1,
+        data:[
+          p1.health_score,
+          100 - p1.failure_probability,
+          Math.min(100, p1.rul_days * 1.5),
+          Math.max(0, 100 - p1.readings.temperature),
+          Math.max(0, 100 - p1.readings.vibration * 10),
+          Math.max(0, 100 - p1.readings.pressure * 8),
+        ],
+        borderColor:'#00d4ff', backgroundColor:'rgba(0,212,255,0.15)',
+        borderWidth:2, pointBackgroundColor:'#00d4ff',
+      },
+      {
+        label:m2,
+        data:[
+          p2.health_score,
+          100 - p2.failure_probability,
+          Math.min(100, p2.rul_days * 1.5),
+          Math.max(0, 100 - p2.readings.temperature),
+          Math.max(0, 100 - p2.readings.vibration * 10),
+          Math.max(0, 100 - p2.readings.pressure * 8),
+        ],
+        borderColor:'#00ff88', backgroundColor:'rgba(0,255,136,0.15)',
+        borderWidth:2, pointBackgroundColor:'#00ff88',
+      }
+    ]
+  },
+  options:{
+    responsive:true,
+    plugins:{ legend:{ labels:{ color:'#aabbcc' } } },
+    scales:{
+      r:{
+        min:0, max:100,
+        grid:{ color:'rgba(0,212,255,0.1)' },
+        pointLabels:{ color:'#aabbcc', font:{ size:11 } },
+        ticks:{ display:false }
+      }
+    }
+  }
+});
+}); // end DOMContentLoaded
+</script>
+{% endif %}
+{% endblock %}

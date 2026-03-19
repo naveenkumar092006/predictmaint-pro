@@ -1,0 +1,56 @@
+/* light.css — Light Theme Override */
+
+:root {
+  --bg:       #f0f4f8 !important;
+  --bg2:      #e2e8f0 !important;
+  --bgcard:   #ffffff !important;
+  --bgcard2:  #f8fafc !important;
+  --text:     #1a202c !important;
+  --muted:    #64748b !important;
+  --border:   rgba(0,0,0,0.12) !important;
+  --border2:  rgba(0,0,0,0.06) !important;
+}
+
+body { background: #f0f4f8 !important; color: #1a202c !important; }
+
+.pm-nav {
+  background: rgba(255,255,255,0.97) !important;
+  border-bottom: 1px solid rgba(0,0,0,0.1) !important;
+}
+.pm-logo { color: #1a202c !important; }
+.pm-nav-btn { border-color: rgba(0,0,0,0.2) !important; color: #0077aa !important; }
+.pm-side { background: #e2e8f0 !important; border-right: 1px solid rgba(0,0,0,0.1) !important; }
+.pm-slink { color: #64748b !important; }
+.pm-slink:hover, .pm-slink.active { color: #0077aa !important; background: rgba(0,119,170,0.08) !important; }
+.pm-slink.active { border-left-color: #0077aa !important; }
+
+.pm-card {
+  background: #ffffff !important;
+  border: 1px solid rgba(0,0,0,0.1) !important;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06) !important;
+}
+.pm-card::before { background: linear-gradient(90deg,transparent,#0077aa,transparent) !important; }
+.pm-card-head { color: #64748b !important; }
+
+.pm-met {
+  background: #f8fafc !important;
+  border: 1px solid rgba(0,0,0,0.08) !important;
+}
+.pm-met .lbl { color: #64748b !important; }
+
+.pm-tbl th { color: #64748b !important; border-bottom: 1px solid rgba(0,0,0,0.1) !important; }
+.pm-tbl td { color: #1a202c !important; border-bottom: 1px solid rgba(0,0,0,0.05) !important; }
+.pm-tbl tr:hover td { background: rgba(0,119,170,0.04) !important; }
+
+.pm-sel, .pm-inp, .form-control, .form-select {
+  background: #ffffff !important;
+  border: 1px solid rgba(0,0,0,0.15) !important;
+  color: #1a202c !important;
+}
+.pm-sel option { background: #ffffff !important; color: #1a202c !important; }
+
+.font-mono { color: inherit !important; }
+.text-mut { color: #64748b !important; }
+
+::-webkit-scrollbar-track { background: #e2e8f0 !important; }
+::-webkit-scrollbar-thumb { background: rgba(0,119,170,0.3) !important; }

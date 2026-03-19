@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Login — PredictMaint Pro</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.2/font/bootstrap-icons.css">
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;600;700&family=Share+Tech+Mono&family=Exo+2:wght@300;400;600&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:#060a10;min-height:100vh;display:flex;align-items:center;justify-content:center;font-family:'Exo 2',sans-serif}
+.bg-grid{position:fixed;inset:0;z-index:0;background-image:linear-gradient(rgba(0,212,255,.04) 1px,transparent 1px),linear-gradient(90deg,rgba(0,212,255,.04) 1px,transparent 1px);background-size:40px 40px}
+.bg-glow{position:fixed;inset:0;z-index:0;background:radial-gradient(ellipse at 20% 50%,rgba(0,212,255,.06) 0%,transparent 55%),radial-gradient(ellipse at 80% 20%,rgba(0,255,136,.04) 0%,transparent 50%)}
+.login-wrap{position:relative;z-index:2;width:100%;max-width:440px;padding:1rem}
+.card{background:rgba(10,18,30,.97);border:1px solid rgba(0,212,255,.18);border-radius:16px;padding:2.5rem;box-shadow:0 0 80px rgba(0,212,255,.07),0 25px 60px rgba(0,0,0,.6)}
+.logo{font-family:'Rajdhani',sans-serif;font-size:1.9rem;font-weight:700;color:#fff;letter-spacing:.02em}
+.logo span{color:#00d4ff}
+.tagline{color:#556677;font-size:.75rem;letter-spacing:.15em;text-transform:uppercase;margin-top:.2rem}
+.divider{height:1px;background:linear-gradient(90deg,transparent,rgba(0,212,255,.3),transparent);margin:1.5rem 0}
+.form-label{color:#7788aa;font-size:.75rem;font-weight:500;text-transform:uppercase;letter-spacing:.08em;margin-bottom:.4rem}
+.input-group-text{background:rgba(0,212,255,.08);border:1px solid rgba(0,212,255,.2);border-right:none;color:#00d4ff}
+.form-control{background:rgba(255,255,255,.04)!important;border:1px solid rgba(0,212,255,.2)!important;border-left:none!important;color:#fff!important;padding:.7rem 1rem!important;font-family:'Exo 2',sans-serif!important}
+.form-control:focus{background:rgba(0,212,255,.06)!important;border-color:#00d4ff!important;box-shadow:none!important;color:#fff!important}
+.form-control::placeholder{color:#334455!important}
+.input-group:focus-within .input-group-text{border-color:#00d4ff;background:rgba(0,212,255,.12)}
+.btn-login{background:linear-gradient(135deg,#0099cc,#006699);border:none;color:#fff;width:100%;font-family:'Rajdhani',sans-serif;font-weight:700;letter-spacing:.12em;padding:.8rem;border-radius:8px;font-size:1.05rem;transition:all .3s;cursor:pointer;margin-top:.5rem}
+.btn-login:hover{background:linear-gradient(135deg,#00b8e6,#0088bb);transform:translateY(-1px);box-shadow:0 8px 25px rgba(0,180,220,.25)}
+.btn-login:active{transform:translateY(0)}
+.security-badges{display:flex;gap:.75rem;justify-content:center;margin-top:1.25rem}
+.badge-item{display:flex;align-items:center;gap:.35rem;font-size:.7rem;color:#445566}
+.badge-item i{color:#00d4ff;font-size:.8rem}
+.alert-custom{background:rgba(255,51,85,.1);border:1px solid rgba(255,51,85,.3);border-radius:8px;color:#ff6677;font-size:.83rem;padding:.65rem 1rem}
+.alert-info-custom{background:rgba(0,212,255,.08);border:1px solid rgba(0,212,255,.2);border-radius:8px;color:#00d4ff;font-size:.83rem;padding:.65rem 1rem}
+.version-tag{font-family:'Share Tech Mono',monospace;font-size:.68rem;color:#334455;text-align:center;margin-top:1.2rem}
+</style>
+</head>
+<body>
+<div class="bg-grid"></div>
+<div class="bg-glow"></div>
+
+<div class="login-wrap">
+  <div class="card">
+    <!-- Logo -->
+    <div class="text-center mb-1">
+      <div style="width:56px;height:56px;background:rgba(0,212,255,.1);border:1px solid rgba(0,212,255,.25);border-radius:14px;display:flex;align-items:center;justify-content:center;margin:0 auto .75rem">
+        <i class="bi bi-cpu-fill" style="font-size:1.6rem;color:#00d4ff"></i>
+      </div>
+      <div class="logo">PredictMaint <span>Pro</span></div>
+      <div class="tagline">Industrial Intelligence Platform</div>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- Alerts -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% for cat,msg in messages %}
+      <div class="{{ 'alert-custom' if cat=='danger' else 'alert-info-custom' }} mb-3">
+        <i class="bi {{ 'bi-exclamation-circle' if cat=='danger' else 'bi-info-circle' }} me-2"></i>{{ msg }}
+      </div>
+      {% endfor %}
+    {% endwith %}
+
+    <!-- Login Form -->
+    <form method="POST" autocomplete="off">
+      <div class="mb-3">
+        <label class="form-label">Username</label>
+        <div class="input-group">
+          <span class="input-group-text"><i class="bi bi-person-fill"></i></span>
+          <input type="text" name="username" class="form-control"
+                 placeholder="Enter your username" required autofocus
+                 autocomplete="username">
+        </div>
+      </div>
+
+      <div class="mb-4">
+        <label class="form-label">Password</label>
+        <div class="input-group">
+          <span class="input-group-text"><i class="bi bi-lock-fill"></i></span>
+          <input type="password" name="password" id="passwordField"
+                 class="form-control" placeholder="Enter your password"
+                 required autocomplete="current-password">
+          <span class="input-group-text" style="border-left:none;border-right:1px solid rgba(0,212,255,.2);cursor:pointer" onclick="togglePwd()">
+            <i class="bi bi-eye-fill" id="eyeIcon" style="color:#445566"></i>
+          </span>
+        </div>
+      </div>
+
+      <button type="submit" class="btn-login">
+        <i class="bi bi-shield-lock-fill me-2"></i>SECURE LOGIN
+      </button>
+    </form>
+
+    <!-- Security Badges -->
+    <div class="security-badges">
+      <div class="badge-item"><i class="bi bi-shield-check"></i>256-bit Encrypted</div>
+      <div class="badge-item"><i class="bi bi-phone"></i>2FA Protected</div>
+      <div class="badge-item"><i class="bi bi-people"></i>Role Based Access</div>
+    </div>
+
+    <div class="version-tag">v4.0 Enterprise &nbsp;|&nbsp; Industrial Predictive Maintenance System</div>
+  </div>
+</div>
+
+<script>
+function togglePwd() {
+  const f = document.getElementById('passwordField');
+  const i = document.getElementById('eyeIcon');
+  if (f.type === 'password') {
+    f.type = 'text';
+    i.className = 'bi bi-eye-slash-fill';
+    i.style.color = '#00d4ff';
+  } else {
+    f.type = 'password';
+    i.className = 'bi bi-eye-fill';
+    i.style.color = '#445566';
+  }
+}
+</script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

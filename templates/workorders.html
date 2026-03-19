@@ -1,0 +1,88 @@
+{% extends 'base.html' %}
+{% block title %}Work Orders — PredictMaint Pro{% endblock %}
+{% block content %}
+<div class="pm-title mb-3"><i class="bi bi-clipboard-check text-acc"></i> Work Order Management</div>
+
+<div class="row g-3 mb-3">
+  {% set open=work_orders|selectattr('status','eq','Open')|list|length %}
+  {% set inprog=work_orders|selectattr('status','eq','In Progress')|list|length %}
+  {% set done=work_orders|selectattr('status','eq','Completed')|list|length %}
+  {% for lbl,val,cls in [('Open Orders',open,'text-dng'),('In Progress',inprog,'text-warn'),('Completed',done,'text-acc2'),('Total',work_orders|length,'text-acc')] %}
+  <div class="col-6 col-md-3"><div class="pm-met">
+    <div class="val {{ cls }}">{{ val }}</div><div class="lbl">{{ lbl }}</div>
+  </div></div>
+  {% endfor %}
+</div>
+
+<div class="row g-3">
+  <div class="col-md-8">
+    <div class="pm-card">
+      <div class="pm-card-head"><i class="bi bi-list-check"></i> All Work Orders</div>
+      <div class="table-responsive">
+        <table class="pm-tbl">
+          <thead><tr><th>WO ID</th><th>Machine</th><th>Issue</th><th>Priority</th><th>Assigned</th><th>Status</th><th>Created</th><th>Action</th></tr></thead>
+          <tbody>
+            {% for wo in work_orders %}
+            <tr>
+              <td class="font-mono text-acc">{{ wo.id }}</td>
+              <td class="font-mono">{{ wo.machine_id }}</td>
+              <td>{{ wo.issue }}</td>
+              <td><span class="st {{ 'st-critical' if wo.priority=='Critical' else 'st-warning' if wo.priority in ['High','Medium'] else 'st-healthy' }}" style="font-size:.65rem">{{ wo.priority }}</span></td>
+              <td class="text-mut">{{ wo.assigned_to }}</td>
+              <td><span class="st {{ 'st-critical' if wo.status=='Open' else 'st-warning' if wo.status=='In Progress' else 'st-healthy' }}" style="font-size:.65rem">{{ wo.status }}</span></td>
+              <td class="font-mono text-mut" style="font-size:.75rem">{{ wo.created_at }}</td>
+              <td>
+                <form method="POST" action="/workorders/update" class="d-flex gap-1">
+                  <input type="hidden" name="wo_id" value="{{ wo.id }}">
+                  <select name="status" class="form-select pm-sel" style="width:110px;padding:3px 6px;font-size:.75rem">
+                    <option value="Open" {% if wo.status=='Open' %}selected{% endif %}>Open</option>
+                    <option value="In Progress" {% if wo.status=='In Progress' %}selected{% endif %}>In Progress</option>
+                    <option value="Completed" {% if wo.status=='Completed' %}selected{% endif %}>Completed</option>
+                    <option value="Cancelled" {% if wo.status=='Cancelled' %}selected{% endif %}>Cancelled</option>
+                  </select>
+                  <button type="submit" class="pm-btn pm-btn-sm">✓</button>
+                </form>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-4">
+    <div class="pm-card">
+      <div class="pm-card-head"><i class="bi bi-plus-circle"></i> Create Work Order</div>
+      <form method="POST" action="/workorders/create">
+        <div class="mb-3">
+          <label class="text-mut small d-block mb-1">Machine</label>
+          <select name="machine_id" class="form-select pm-sel" required>
+            {% for mid,info in machines.items() %}
+            <option value="{{ mid }}">{{ mid }} — {{ info.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="mb-3">
+          <label class="text-mut small d-block mb-1">Issue Description</label>
+          <textarea name="issue" class="form-control pm-inp" rows="3" required placeholder="Describe the issue..."></textarea>
+        </div>
+        <div class="mb-3">
+          <label class="text-mut small d-block mb-1">Priority</label>
+          <select name="priority" class="form-select pm-sel">
+            <option value="Critical">Critical</option>
+            <option value="High">High</option>
+            <option value="Medium" selected>Medium</option>
+            <option value="Low">Low</option>
+          </select>
+        </div>
+        <div class="mb-3">
+          <label class="text-mut small d-block mb-1">Assign To</label>
+          <input type="text" name="assigned_to" class="form-control pm-inp" value="engineer1" required>
+        </div>
+        <button type="submit" class="pm-btn w-100"><i class="bi bi-plus-circle me-1"></i>Create Work Order</button>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

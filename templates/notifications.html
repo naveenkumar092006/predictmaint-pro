@@ -1,0 +1,115 @@
+{% extends 'base.html' %}
+{% block title %}Notifications — PredictMaint Pro{% endblock %}
+{% block content %}
+<div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+  <div class="pm-title"><i class="bi bi-bell text-acc"></i> Notification Center</div>
+  <div class="d-flex gap-2">
+    <form method="POST" action="/notifications/read-all">
+      <button class="pm-btn pm-btn-sm"><i class="bi bi-check-all me-1"></i>Mark All Read</button>
+    </form>
+    <form method="POST" action="/notifications/clear">
+      <button class="pm-btn pm-btn-dng pm-btn-sm"><i class="bi bi-trash me-1"></i>Clear All</button>
+    </form>
+  </div>
+</div>
+
+<!-- Stats -->
+<div class="row g-3 mb-3">
+  {% set crit = notifications|selectattr('severity','eq','critical')|list|length %}
+  {% set warn = notifications|selectattr('severity','eq','warning')|list|length %}
+  {% set info = notifications|selectattr('severity','eq','info')|list|length %}
+  {% for lbl,val,cls in [
+    ('Unread',unread,'text-dng'),
+    ('Critical',crit,'text-dng'),
+    ('Warning',warn,'text-warn'),
+    ('Info',info,'text-acc'),
+  ] %}
+  <div class="col-6 col-md-3"><div class="pm-met">
+    <div class="val {{ cls }}">{{ val }}</div><div class="lbl">{{ lbl }}</div>
+  </div></div>
+  {% endfor %}
+</div>
+
+<!-- Notification List -->
+<div class="pm-card">
+  <div class="pm-card-head"><i class="bi bi-list-ul"></i> All Notifications</div>
+  {% if notifications %}
+  <div class="d-flex flex-column gap-2">
+    {% for n in notifications %}
+    <div class="notif-item {{ 'notif-unread' if not n.read else 'notif-read' }} notif-{{ n.severity }}"
+         id="notif-{{ n.id }}">
+      <div class="d-flex align-items-start justify-content-between gap-2">
+        <div class="d-flex align-items-start gap-3">
+          <!-- Icon -->
+          <div class="notif-icon notif-icon-{{ n.severity }}">
+            {% if n.severity=='critical' %}<i class="bi bi-exclamation-triangle-fill"></i>
+            {% elif n.severity=='warning' %}<i class="bi bi-exclamation-circle-fill"></i>
+            {% else %}<i class="bi bi-info-circle-fill"></i>{% endif %}
+          </div>
+          <div>
+            <div class="d-flex align-items-center gap-2 flex-wrap">
+              <strong style="font-size:.88rem">{{ n.title }}</strong>
+              {% if not n.read %}<span class="notif-badge-new">NEW</span>{% endif %}
+              <span class="pm-role-badge" style="font-size:.6rem">{{ n.machine_id }}</span>
+            </div>
+            <div class="text-mut mt-1" style="font-size:.82rem">{{ n.message }}</div>
+            <div class="text-mut mt-1" style="font-size:.73rem">
+              <i class="bi bi-clock me-1"></i>{{ n.time_ago }}
+              &nbsp;|&nbsp; {{ n.timestamp }}
+            </div>
+          </div>
+        </div>
+        {% if not n.read %}
+        <button class="pm-btn pm-btn-sm" style="white-space:nowrap"
+                onclick="markRead({{ n.id }})">
+          <i class="bi bi-check"></i>
+        </button>
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="text-center py-5">
+    <i class="bi bi-bell-slash" style="font-size:3rem;color:var(--muted)"></i>
+    <div class="text-mut mt-2">No notifications yet</div>
+  </div>
+  {% endif %}
+</div>
+
+<style>
+.notif-item{padding:1rem 1.25rem;border-radius:10px;border:1px solid var(--border2);transition:all .2s}
+.notif-unread{background:var(--bgcard2)}
+.notif-read{background:transparent;opacity:.7}
+.notif-critical{border-left:3px solid #ff3355}
+.notif-warning{border-left:3px solid #ffaa00}
+.notif-info{border-left:3px solid #00d4ff}
+.notif-icon{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:1rem}
+.notif-icon-critical{background:rgba(255,51,85,.15);color:#ff3355}
+.notif-icon-warning{background:rgba(255,170,0,.15);color:#ffaa00}
+.notif-icon-info{background:rgba(0,212,255,.15);color:#00d4ff}
+.notif-badge-new{background:rgba(255,51,85,.15);color:#ff3355;font-size:.6rem;padding:2px 7px;border-radius:20px;border:1px solid rgba(255,51,85,.3);font-weight:600}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+async function markRead(id) {
+  await fetch(`/notifications/read/${id}`, {method:'POST'});
+  const el = document.getElementById(`notif-${id}`);
+  if (el) {
+    el.classList.remove('notif-unread');
+    el.classList.add('notif-read');
+    el.querySelector('.notif-badge-new')?.remove();
+    el.querySelector('button')?.remove();
+  }
+  // Update navbar count
+  const badge = document.getElementById('navNotifBadge');
+  if (badge) {
+    const count = parseInt(badge.textContent) - 1;
+    badge.textContent = count;
+    if (count <= 0) badge.style.display = 'none';
+  }
+}
+</script>
+{% endblock %}
