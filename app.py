@@ -804,6 +804,7 @@ def api_update_machine():
         'status':      status,
         'source':      'camera',
         'timestamp':   datetime.now().strftime('%H:%M:%S'),
+        'unix_time':    __import__('time').time(),
     }
     try:
         from database import save_sensor_reading
@@ -821,7 +822,6 @@ def api_update_machine():
     return jsonify({"success": True, "received": machine_id, "status": status})
 
 @app.route('/api/camera-live-data')
-@login_required
 def api_camera_live_data():
     data = getattr(app, '_camera_data', {})
     return jsonify({"success": True, "machines": data, "count": len(data)})

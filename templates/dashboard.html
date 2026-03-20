@@ -106,7 +106,7 @@ async function loadCameraData() {
       const now = new Date();
       const tp = m.timestamp ? m.timestamp.split(':') : ['0','0','0'];
       const ld = new Date(); ld.setHours(parseInt(tp[0]),parseInt(tp[1]),parseInt(tp[2]||0));
-      const isOffline = (now - ld) / 1000 > 30;
+      const isOffline = m.unix_time ? (Date.now()/1000 - m.unix_time) > 30 : (now - ld) / 1000 > 30;
       const sc = isOffline ? 'text-mut' : m.status === 'FAILURE' ? 'text-dng' : m.status === 'WARNING' ? 'text-warn' : 'text-acc2';
       const bc = m.status === 'FAILURE' ? 'rgba(255,51,85,.1)' : m.status === 'WARNING' ? 'rgba(255,165,0,.1)' : 'rgba(0,212,255,.05)';
       html += `<div style="background:${bc};border:1px solid var(--border);border-radius:10px;padding:12px;opacity:${isOffline?0.55:1}">

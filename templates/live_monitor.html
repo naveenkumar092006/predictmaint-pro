@@ -974,7 +974,7 @@ async function pollLaptopCam() {
     machines.forEach(m => {
       const tp = (m.timestamp||'00:00:00').split(':');
       const ld = new Date(); ld.setHours(+tp[0]||0,+tp[1]||0,+tp[2]||0);
-      if ((now-ld)/1000 <= 30) online++;
+      if ((now-ld)/1000 <= 300) online++;
     });
     badge.textContent = online > 0 ? '● LIVE — '+online+' sending' : '● VS Code closed';
     badge.style.color = online > 0 ? '#00e676' : '#ff9800';
@@ -984,7 +984,7 @@ async function pollLaptopCam() {
       const tp = (m.timestamp||'0:0:0').split(':');
       const ld = new Date(); ld.setHours(+tp[0]||0,+tp[1]||0,+tp[2]||0);
       const age = Math.round((new Date()-ld)/1000);
-      const offline = age > 30;
+      const offline = m.unix_time ? (Date.now()/1000 - m.unix_time) > 30 : age > 300;
       const status = offline ? 'OFFLINE' : (m.status||'NORMAL');
       const sc = status==='FAILURE'?'#f44336':status==='WARNING'?'#ff9800':offline?'#8899aa':'#00e676';
       const t=+m.temperature||0, v=+m.vibration||0, p=+m.pressure||0, h=+m.hours||0;
@@ -1026,6 +1026,108 @@ async function pollLaptopCam() {
 }
 setInterval(pollLaptopCam, 2000);
 pollLaptopCam();
+
+
+async function showLaptopInMonitor() {
+  try {
+    const r = await fetch('/api/camera-live-data');
+    const d = await r.json();
+    const machines = Object.values(d.machines || {});
+    const container = document.getElementById('lm-cards');
+    if (!container) return;
+    if (machines.length === 0) return;
+    const icons = {'bottle':'🍶','cell phone':'📱','laptop':'💻','book':'📚','box':'📦','person':'👤','object':'📦','cup':'☕'};
+    const names = {'bottle':'Bottle','cell phone':'Mobile Phone','laptop':'Laptop','book':'Book','box':'Box','person':'Person','object':'Object','cup':'Cup'};
+    container.innerHTML = machines.map(m => {
+      const sc = m.status==='FAILURE'?'#f44336':m.status==='WARNING'?'#ff9800':'#00e676';
+      const t=+(m.temperature||0), v=+(m.vibration||0), p=+(m.pressure||0), h=+(m.hours||0);
+      const icon = icons[m.object_label||'object']||'📦';
+      const name = names[m.object_label||'object']||'Object';
+      return '<div class="lm-card '+m.status+'" style="border-left-color:'+sc+'">'
+        +'<div class="lm-card-top">'
+        +'<div style="display:flex;align-items:center;gap:8px">'
+        +'<span style="font-size:1.8rem">'+icon+'</span>'
+        +'<div><div class="lm-mid">'+m.machine_id+'</div>'
+        +'<div class="lm-mname">'+name+' • Live from laptop</div></div></div>'
+        +'<span class="lm-badge lm-badge-'+m.status+'">'+m.status+'</span></div>'
+        +'<div class="lm-sensors">'
+        +'<div>🌡 Temp: <b style="color:'+(t>90?'#f44336':t>80?'#ff9800':'#00d4ff')+'">'+t.toFixed(1)+'°C</b></div>'
+        +'<div>📳 Vib: <b style="color:'+(v>5.5?'#f44336':v>4?'#ff9800':'#00d4ff')+'">'+v.toFixed(2)+' mm/s</b></div>'
+        +'<div>💨 Press: <b style="color:'+(p>7.5?'#f44336':p>6.5?'#ff9800':'#00d4ff')+'">'+p.toFixed(1)+' bar</b></div>'
+        +'<div>⏱ Hours: <b>'+h.toFixed(0)+'</b></div></div>'
+        +'<div class="lm-hbar-wrap"><div class="lm-hbar" style="width:'+Math.max(0,100-+(m.failure_probability||0))+'%;background:'+sc+'"></div></div>'
+        +'</div>';
+    }).join('');
+  } catch(e) {}
+}
+setInterval(showLaptopInMonitor, 2000);
+showLaptopInMonitor();
+
+
+async function updateCounters() {
+  try {
+    const r = await fetch('/api/camera-live-data');
+    const d = await r.json();
+    const machines = Object.values(d.machines || {});
+    let crit=0, warn=0, norm=0;
+    machines.forEach(m => {
+      if (m.status==='FAILURE') crit++;
+      else if (m.status==='WARNING') warn++;
+      else norm++;
+    });
+    ['s-crit','da-crit'].forEach(id => { const el=document.getElementById(id); if(el) el.textContent=crit; });
+    ['s-warn','da-warn'].forEach(id => { const el=document.getElementById(id); if(el) el.textContent=warn; });
+    ['s-norm','da-norm'].forEach(id => { const el=document.getElementById(id); if(el) el.textContent=norm; });
+    ['lm-count','da-total'].forEach(id => { const el=document.getElementById(id); if(el) el.textContent=machines.length; });
+    const el=document.getElementById('lm-crit-count'); if(el) el.textContent=crit;
+  } catch(e) {}
+}
+setInterval(updateCounters, 2000);
+updateCounters();
+
+
+async function updateDATable() {
+  try {
+    const r = await fetch('/api/camera-live-data');
+    const d = await r.json();
+    const machines = Object.values(d.machines || {});
+    const daBody = document.getElementById('da-table-body');
+    if (!daBody || machines.length === 0) return;
+    const icons = {'bottle':'🍶','cell phone':'📱','laptop':'💻','book':'📚','box':'📦','person':'👤','object':'📦','cup':'☕'};
+    const names = {'bottle':'Bottle','cell phone':'Mobile Phone','laptop':'Laptop','book':'Book','box':'Box','person':'Person','object':'Object','cup':'Cup'};
+    let rows = machines.map(m => {
+      const t=+(m.temperature||0),v=+(m.vibration||0),p=+(m.pressure||0),h=+(m.hours||0);
+      const icon = icons[m.object_label||'object']||'📦';
+      const name = names[m.object_label||'object']||'Object';
+      const hpct = Math.max(0,100-+(m.failure_probability||0));
+      const hc = hpct>=70?'#00e676':hpct>=40?'#ff9800':'#f44336';
+      const sc = m.status==='FAILURE'?'da-badge-CRITICAL':m.status==='WARNING'?'da-badge-WARNING':'da-badge-NORMAL';
+      const tc = t>90?'c-crit':t>80?'c-warn':'c-info';
+      const vc = v>5.5?'c-crit':v>4?'c-warn':'c-ok';
+      const pc = p>7.5?'c-crit':p>6.5?'c-warn':'c-ok';
+      return '<tr class="row-'+m.status+'">'
+        +'<td><div class="da-mid">'+icon+' '+m.machine_id+'</div>'
+        +'<div class="da-mname">'+name+'</div></td>'
+        +'<td><span class="da-badge '+sc+'">'+m.status+'</span></td>'
+        +'<td><div class="da-hbar-row"><div class="da-hbar-bg">'
+        +'<div class="da-hbar-fg" style="width:'+hpct+'%;background:'+hc+'"></div></div>'
+        +'<span class="da-hbar-txt" style="color:'+hc+'">'+hpct.toFixed(1)+'%</span></div></td>'
+        +'<td><span class="da-sv '+tc+'">'+t.toFixed(1)+'°C</span></td>'
+        +'<td><span class="da-sv '+vc+'">'+v.toFixed(2)+'</span></td>'
+        +'<td><span class="da-sv '+pc+'">'+p.toFixed(1)+'</span></td>'
+        +'<td><span class="da-sv">--</span></td>'
+        +'<td><span class="da-sv">--</span></td>'
+        +'<td>'+icon+' <span style="font-size:.7rem;color:#8899aa">'+name+'</span></td>'
+        +'</tr>';
+    }).join('');
+    daBody.innerHTML = '<table class="da-tbl"><thead><tr>'
+      +'<th>Machine</th><th>Status</th><th>Health</th><th>Temp</th>'
+      +'<th>Vibration</th><th>Pressure</th><th>Failure%</th><th>RUL</th><th>Object</th>'
+      +'</tr></thead><tbody>'+rows+'</tbody></table>';
+  } catch(e) {}
+}
+setInterval(updateDATable, 2000);
+updateDATable();
 
 </script>
 {% endblock %}
