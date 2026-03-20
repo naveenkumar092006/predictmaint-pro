@@ -42,7 +42,7 @@ async function loadFactories() {
       const hc   = f.avg_health >= 60 ? '#00e676' : f.avg_health >= 40 ? '#ff9800' : '#f44336';
       const sc   = f.status === 'Critical' ? 'st-critical' : 'st-healthy';
       const icon = f.status === 'Critical' ? 'bi-exclamation-triangle-fill text-dng' : 'bi-check-circle-fill text-acc2';
-      return `<div style="background:var(--bgcard2);border:1px solid var(--border);border-radius:10px;padding:12px">
+      return `<div style="background:var(--bgcard2);border:1px solid var(--border);border-radius:10px;padding:12px;opacity:${isOffline?0.55:1}">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
           <div>
             <div style="font-weight:700;font-size:.88rem;color:var(--text)">${f.name}</div>
@@ -72,6 +72,61 @@ async function loadFactories() {
 }
 loadFactories();
 setInterval(loadFactories, 15000);
+</script>
+
+
+<!-- LIVE CAMERA DATA PANEL -->
+<div class="pm-card mb-3" id="cameraSenderPanel">
+  <div class="pm-card-head">
+    <i class="bi bi-camera-video-fill text-dng"></i> Live Camera Feed — From Your Laptop
+    <span class="ms-2 st st-healthy" id="camSenderStatus" style="display:none">● RECEIVING</span>
+    <span class="ms-auto font-mono text-mut" style="font-size:.72rem" id="camSenderTime"></span>
+  </div>
+  <div id="camSenderBody">
+    <div class="text-mut text-center py-3" style="font-size:.84rem">
+      <i class="bi bi-laptop me-2"></i>Waiting for data from your laptop camera...
+      <br><small>Run <code>python app.py</code> in VS Code to start sending</small>
+    </div>
+  </div>
+</div>
+
+<script>
+async function loadCameraData() {
+  try {
+    const r = await fetch('/api/camera-live-data');
+    const d = await r.json();
+    if (!d.success || d.count === 0) return;
+
+    document.getElementById('camSenderStatus').style.display = 'inline';
+    document.getElementById('camSenderTime').textContent = 'Last update: ' + new Date().toLocaleTimeString('en-IN',{hour12:false});
+
+    const machines = Object.values(d.machines);
+    let html = '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;padding:8px 0">';
+    machines.forEach(m => {
+      const now = new Date();
+      const tp = m.timestamp ? m.timestamp.split(':') : ['0','0','0'];
+      const ld = new Date(); ld.setHours(parseInt(tp[0]),parseInt(tp[1]),parseInt(tp[2]||0));
+      const isOffline = (now - ld) / 1000 > 30;
+      const sc = isOffline ? 'text-mut' : m.status === 'FAILURE' ? 'text-dng' : m.status === 'WARNING' ? 'text-warn' : 'text-acc2';
+      const bc = m.status === 'FAILURE' ? 'rgba(255,51,85,.1)' : m.status === 'WARNING' ? 'rgba(255,165,0,.1)' : 'rgba(0,212,255,.05)';
+      html += `<div style="background:${bc};border:1px solid var(--border);border-radius:10px;padding:12px;opacity:${isOffline?0.55:1}">
+        <div class="font-mono text-acc fw-bold" style="font-size:.95rem">${m.machine_id}</div>
+        <div class="text-mut" style="font-size:.72rem;margin-bottom:8px">Camera Detection • ${m.timestamp}</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;font-size:.8rem">
+          <div>🌡 <span class="font-mono">${m.temperature}°C</span></div>
+          <div>📳 <span class="font-mono">${m.vibration} mm/s</span></div>
+          <div>💨 <span class="font-mono">${m.pressure} bar</span></div>
+          <div>⏱ <span class="font-mono">${m.hours} h</span></div>
+        </div>
+        <div class="mt-2"><span class="st st-${isOffline?'warning':m.status.toLowerCase()} ${sc}">● ${isOffline?'OFFLINE':m.status}</span>${isOffline?'<small class="text-mut ms-1">(VS Code closed)</small>':''}</div>
+      </div>`;
+    });
+    html += '</div>';
+    document.getElementById('camSenderBody').innerHTML = html;
+  } catch(e) {}
+}
+loadCameraData();
+setInterval(loadCameraData, 3000);
 </script>
 
 <!-- DAILY REPORT -->

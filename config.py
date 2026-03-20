@@ -31,8 +31,8 @@ class Config:
     GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY', 'YOUR_GEMINI_API_KEY')
 
     # ── TELEGRAM ─────────────────────────────────────────────────────────────
-    TELEGRAM_BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN', 'YOUR_BOT_TOKEN')
-    TELEGRAM_CHAT_ID   = os.environ.get('TELEGRAM_CHAT_ID',   'YOUR_CHAT_ID')
+    TELEGRAM_BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN', '8345194955:AAEZve-gH23_RCrCl1PJ0vKEU3mxLy7XQ-A')
+    TELEGRAM_CHAT_ID   = os.environ.get('TELEGRAM_CHAT_ID',   '6828255111')
 
     # ── THRESHOLDS ────────────────────────────────────────────────────────────
     CRITICAL_FAILURE_PROB  = 0.60

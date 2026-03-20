@@ -80,21 +80,24 @@ def login():
             otp = generate_otp(username)
             session['pending_user_id']  = user.id
             session['pending_username'] = username
-            # Send OTP via Gmail if email configured
+            # Send OTP to ADMIN via Telegram (admin controls all logins)
+            from telegram_alert import _send
+            from config import Config
+            token   = Config.TELEGRAM_BOT_TOKEN
+            chat_id = Config.TELEGRAM_CHAT_ID
+            msg_text = (f"🔐 *LOGIN REQUEST*\n"
+                       f"User: *{username}*\n"
+                       f"Role: *{user.role}*\n"
+                       f"OTP: *{otp}*\n"
+                       f"Share this OTP with the user to grant access.")
+            ok, msg = _send(token, chat_id, msg_text)
+            # Also try Gmail as backup
             if user.email:
-                ok, msg = send_otp_email(user.email, otp, username)
-                if ok:
-                    # Mask email for display: vi***@gmail.com
-                    parts = user.email.split('@')
-                    masked = parts[0][:2] + '***@' + parts[1] if len(parts)==2 else '***'
-                    session['email_sent']   = True
-                    session['email_masked'] = masked
-                else:
-                    session['email_sent']   = False
-                    session['email_masked'] = ''
-            else:
-                session['email_sent']   = False
-                session['email_masked'] = ''
+                send_otp_email(user.email, otp, username)
+            session['email_sent']   = True
+            session['email_masked'] = 'Admin Telegram'
+            tg_status = 'sent' if ok else 'failed'
+            print(f"[OTP] User={username} OTP={otp} Telegram={tg_status}")
             return redirect(url_for('verify_2fa'))
         flash('Invalid username or password.', 'danger')
     return render_template('login.html')
@@ -777,6 +780,51 @@ def esp32_devices():
 @login_required
 def live_monitor():
     return render_template('live_monitor.html')
+
+
+@app.route('/api/update-machine', methods=['POST'])
+def api_update_machine():
+    data = request.get_json(silent=True)
+    if not data:
+        return jsonify({"success": False, "error": "No JSON"}), 400
+    machine_id  = data.get('machine_id', 'MCH-101')
+    temperature = float(data.get('temperature', 0))
+    vibration   = float(data.get('vibration',   0))
+    pressure    = float(data.get('pressure',    0))
+    hours       = float(data.get('hours',       0))
+    status      = data.get('status', 'NORMAL')
+    if not hasattr(app, '_camera_data'):
+        app._camera_data = {}
+    app._camera_data[machine_id] = {
+        'machine_id':  machine_id,
+        'temperature': temperature,
+        'vibration':   vibration,
+        'pressure':    pressure,
+        'hours':       hours,
+        'status':      status,
+        'source':      'camera',
+        'timestamp':   datetime.now().strftime('%H:%M:%S'),
+    }
+    try:
+        from database import save_sensor_reading
+        pred = predict_machine(machine_id)
+        save_sensor_reading(machine_id,
+            {'temperature': temperature, 'vibration': vibration,
+             'pressure': pressure, 'operating_hours': hours}, pred)
+    except Exception:
+        pass
+    if status == 'FAILURE':
+        add_notification(machine_id,
+            MACHINES.get(machine_id, {}).get('name', machine_id),
+            'critical', f'Camera Alert: {machine_id} FAILURE',
+            f'Temp={temperature}C Vib={vibration}mm/s Press={pressure}bar')
+    return jsonify({"success": True, "received": machine_id, "status": status})
+
+@app.route('/api/camera-live-data')
+@login_required
+def api_camera_live_data():
+    data = getattr(app, '_camera_data', {})
+    return jsonify({"success": True, "machines": data, "count": len(data)})
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
