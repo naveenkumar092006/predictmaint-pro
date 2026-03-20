@@ -234,6 +234,30 @@
 <!-- Toast area -->
 <div id="lm-toasts"></div>
 
+<!-- LAPTOP CAMERA INPUT SECTION -->
+<div id="laptopCamSection" style="padding:14px 16px 0">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+    <div>
+      <div style="font-size:1rem;font-weight:700;color:#00d4ff;text-transform:uppercase;letter-spacing:1px;display:flex;align-items:center;gap:8px">
+        <span style="width:10px;height:10px;border-radius:50%;background:#f44336;animation:blink 1s infinite;display:inline-block"></span>
+        Laptop Camera — Live Input
+      </div>
+      <div style="font-size:.75rem;color:#8899aa;margin-top:2px">Data received from your VS Code camera in real-time</div>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px">
+      <span id="laptopCamStatusBadge" style="font-size:.72rem;padding:3px 10px;border-radius:20px;background:rgba(100,100,100,.15);color:#8899aa;border:1px solid #2a3a50">● Waiting...</span>
+      <span style="font-size:.72rem;color:#8899aa;font-family:monospace" id="laptopCamTime"></span>
+    </div>
+  </div>
+  <div id="laptopCamCards" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px;margin-bottom:16px">
+    <div style="grid-column:1/-1;text-align:center;padding:28px;color:#8899aa;font-size:.84rem;background:#111827;border:1px solid #1e3050;border-radius:10px">
+      <i class="bi bi-laptop" style="font-size:2rem;display:block;margin-bottom:8px;opacity:.4"></i>
+      No data received yet.<br>
+      <small>Run <code style="background:#1a2236;padding:1px 6px;border-radius:3px">python app.py</code> in VS Code to start sending camera data here.</small>
+    </div>
+  </div>
+</div>
+<hr style="border-color:#1e3050;margin:0 16px 0">
 <div class="lm-grid">
 
   <!-- ── Camera Panel ───────────────────────────────────────── -->
@@ -933,5 +957,75 @@ async function daPoll() {
 
 setInterval(daPoll, 2000);
 daPoll();
+
+async function pollLaptopCam() {
+  try {
+    const r = await fetch('/api/camera-live-data');
+    const d = await r.json();
+    if (!d.success) return;
+    const machines = Object.values(d.machines || {});
+    const badge = document.getElementById('laptopCamStatusBadge');
+    const timeEl = document.getElementById('laptopCamTime');
+    const cards = document.getElementById('laptopCamCards');
+    timeEl.textContent = 'Updated ' + new Date().toLocaleTimeString();
+    if (machines.length === 0) { badge.textContent = '● Waiting...'; return; }
+    const now = new Date();
+    let online = 0;
+    machines.forEach(m => {
+      const tp = (m.timestamp||'00:00:00').split(':');
+      const ld = new Date(); ld.setHours(+tp[0]||0,+tp[1]||0,+tp[2]||0);
+      if ((now-ld)/1000 <= 30) online++;
+    });
+    badge.textContent = online > 0 ? '● LIVE — '+online+' sending' : '● VS Code closed';
+    badge.style.color = online > 0 ? '#00e676' : '#ff9800';
+    const icons = {'bottle':'🍶','cell phone':'📱','laptop':'💻','book':'📚','box':'📦','person':'👤','object':'📦','cup':'☕'};
+    const names = {'bottle':'Bottle','cell phone':'Mobile Phone','laptop':'Laptop','book':'Book','box':'Box','person':'Person','object':'Object','cup':'Cup'};
+    cards.innerHTML = machines.map(m => {
+      const tp = (m.timestamp||'0:0:0').split(':');
+      const ld = new Date(); ld.setHours(+tp[0]||0,+tp[1]||0,+tp[2]||0);
+      const age = Math.round((new Date()-ld)/1000);
+      const offline = age > 30;
+      const status = offline ? 'OFFLINE' : (m.status||'NORMAL');
+      const sc = status==='FAILURE'?'#f44336':status==='WARNING'?'#ff9800':offline?'#8899aa':'#00e676';
+      const t=+m.temperature||0, v=+m.vibration||0, p=+m.pressure||0, h=+m.hours||0;
+      const icon = icons[m.object_label]||'📦';
+      const name = names[m.object_label]||m.object_label||'Object';
+      return `<div style="border:1px solid ${sc};border-radius:10px;padding:14px;background:#111827;opacity:${offline?.6:1}">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid #1e3050">
+          <div style="font-size:2rem">${icon}</div>
+          <div style="flex:1">
+            <div style="font-size:.95rem;font-weight:700;color:#e0e6f0">${name}</div>
+            <div style="font-size:.65rem;color:${offline?'#f44336':'#00e676'}">● ${offline?'Offline '+age+'s ago':'Live '+age+'s ago'}</div>
+          </div>
+          <div style="text-align:right">
+            <div style="font-family:monospace;font-weight:700;color:#00d4ff">${m.machine_id}</div>
+            <span style="font-size:.65rem;padding:2px 8px;border-radius:20px;color:${sc};border:1px solid ${sc}">${status}</span>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:5px">
+          <div style="background:#0d1525;border-radius:6px;padding:7px;text-align:center">
+            <div style="font-size:.95rem;font-weight:700;font-family:monospace;color:${t>90?'#f44336':t>80?'#ff9800':'#00d4ff'}">${t.toFixed(1)}</div>
+            <div style="font-size:.58rem;color:#8899aa">°C</div>
+          </div>
+          <div style="background:#0d1525;border-radius:6px;padding:7px;text-align:center">
+            <div style="font-size:.95rem;font-weight:700;font-family:monospace;color:${v>5.5?'#f44336':v>4?'#ff9800':'#00d4ff'}">${v.toFixed(2)}</div>
+            <div style="font-size:.58rem;color:#8899aa">mm/s</div>
+          </div>
+          <div style="background:#0d1525;border-radius:6px;padding:7px;text-align:center">
+            <div style="font-size:.95rem;font-weight:700;font-family:monospace;color:${p>7.5?'#f44336':p>6.5?'#ff9800':'#00d4ff'}">${p.toFixed(1)}</div>
+            <div style="font-size:.58rem;color:#8899aa">bar</div>
+          </div>
+          <div style="background:#0d1525;border-radius:6px;padding:7px;text-align:center">
+            <div style="font-size:.95rem;font-weight:700;font-family:monospace;color:#8899aa">${h.toFixed(0)}</div>
+            <div style="font-size:.58rem;color:#8899aa">hrs</div>
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+  } catch(e) {}
+}
+setInterval(pollLaptopCam, 2000);
+pollLaptopCam();
+
 </script>
 {% endblock %}

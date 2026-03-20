@@ -97,7 +97,7 @@ class MachineDetector:
         detections, seen = [], set()
         for i in range(out.shape[2]):
             conf = float(out[0, 0, i, 2])
-            if conf < 0.45: continue
+            if conf < 0.30: continue
             idx = int(out[0, 0, i, 1])
             if idx >= len(self.classes): continue
             label  = self.classes[idx]
@@ -112,22 +112,52 @@ class MachineDetector:
         return detections
 
     def _detect_contour(self, frame):
-        gray  = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        blur  = cv2.GaussianBlur(gray, (7, 7), 0)
-        _, th = cv2.threshold(blur, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
-        kern  = cv2.getStructuringElement(cv2.MORPH_RECT, (15, 15))
-        th    = cv2.morphologyEx(th, cv2.MORPH_CLOSE, kern)
-        cnts, _ = cv2.findContours(th, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         h, w  = frame.shape[:2]
-        valid = sorted([c for c in cnts
-                        if (w*h)*0.01 < cv2.contourArea(c) < (w*h)*0.90],
-                       key=cv2.contourArea, reverse=True)[:4]
+        gray  = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        blur  = cv2.GaussianBlur(gray, (5, 5), 0)
+        edges = cv2.Canny(blur, 30, 100)
+        kern  = cv2.getStructuringElement(cv2.MORPH_RECT, (12, 12))
+        edges = cv2.morphologyEx(edges, cv2.MORPH_CLOSE, kern)
+        cnts1, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        _, th = cv2.threshold(blur, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+        kern2 = cv2.getStructuringElement(cv2.MORPH_RECT, (10, 10))
+        th    = cv2.morphologyEx(th, cv2.MORPH_CLOSE, kern2)
+        cnts2, _ = cv2.findContours(th, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        all_cnts = list(cnts1) + list(cnts2)
+        min_area = (w * h) * 0.005
+        max_area = (w * h) * 0.88
+        valid = sorted([c for c in all_cnts
+                        if min_area < cv2.contourArea(c) < max_area],
+                       key=cv2.contourArea, reverse=True)
+        filtered = []
+        for cnt in valid:
+            x, y, bw, bh = cv2.boundingRect(cnt)
+            overlap = False
+            for fc in filtered:
+                fx, fy, fbw, fbh = cv2.boundingRect(fc)
+                if abs(x - fx) < 60 and abs(y - fy) < 60:
+                    overlap = True
+                    break
+            if not overlap:
+                filtered.append(cnt)
+            if len(filtered) >= 4:
+                break
+        def guess_label(cnt):
+            x, y, bw, bh = cv2.boundingRect(cnt)
+            ratio = bw / max(bh, 1)
+            area  = cv2.contourArea(cnt)
+            if ratio < 0.6:        return 'bottle'
+            if ratio > 1.8:        return 'laptop'
+            if area < (w*h)*0.03:  return 'cell phone'
+            return 'box'
         order = ['MCH-101','MCH-102','MCH-103','MCH-104']
         dets  = []
-        for i, cnt in enumerate(valid):
+        for i, cnt in enumerate(filtered[:4]):
             x, y, bw, bh = cv2.boundingRect(cnt)
-            dets.append({'label': 'object', 'machine_id': order[i],
-                         'confidence': 0.80,
+            label  = guess_label(cnt)
+            mch_id = OBJECT_TO_MACHINE.get(label, order[i])
+            dets.append({'label': label, 'machine_id': mch_id,
+                         'confidence': 0.75,
                          'bbox': (x, y, x+bw, y+bh)})
         return dets
 
